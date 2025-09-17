@@ -340,8 +340,8 @@ Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
 	// Convert weight from grams to expected unit
 	var convertedWeight = Grocy.Components.HomeAssistantScale.ConvertFromGrams(weight, expectedUnit);
 	
-	// Format the weight according to user settings
-	var formattedWeight = convertedWeight.toLocaleString(undefined, {
+	// Format the weight with dot decimal separator for JavaScript compatibility
+	var formattedWeight = convertedWeight.toLocaleString('en-US', {
 		minimumFractionDigits: 0,
 		maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts || 4
 	});
