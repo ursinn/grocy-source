@@ -167,9 +167,65 @@ Grocy.Components.HomeAssistantScale.IsWeightInput = function(element)
 	var name = element.name || '';
 	var className = element.className || '';
 	
-	return (id.includes('weight') || id.includes('amount') || id.includes('quantity') ||
-			name.includes('weight') || name.includes('amount') || name.includes('quantity') ||
-			className.includes('weight') || className.includes('amount') || className.includes('quantity'));
+	// Check id, name, and class attributes
+	if (id.includes('weight') || id.includes('amount') || id.includes('quantity') ||
+		name.includes('weight') || name.includes('amount') || name.includes('quantity') ||
+		className.includes('weight') || className.includes('amount') || className.includes('quantity'))
+	{
+		return true;
+	}
+	
+	// Check data attributes for weight-related terms
+	var dataAttrs = $element.data();
+	for (var key in dataAttrs) {
+		if (dataAttrs.hasOwnProperty(key)) {
+			var value = String(dataAttrs[key]).toLowerCase();
+			if (value.includes('weight') || value.includes('amount') || value.includes('quantity')) {
+				return true;
+			}
+		}
+	}
+	
+	// Check associated label text
+	var label = null;
+	
+	// Find label by 'for' attribute (only if id exists and is not empty)
+	if (id && id.trim())
+	{
+		label = $('label[for="' + id + '"]');
+	}
+	
+	// Find label as parent or sibling
+	if (!label || label.length === 0)
+	{
+		label = $element.closest('label');
+		if (label.length === 0)
+		{
+			label = $element.siblings('label');
+		}
+	}
+	
+	// Find label within the same form group or container
+	if (!label || label.length === 0)
+	{
+		var container = $element.closest('.form-group, .input-group, .field');
+		if (container.length > 0)
+		{
+			label = container.find('label').first();
+		}
+	}
+	
+	// Check label text for weight-related words
+	if (label && label.length > 0)
+	{
+		var labelText = label.text().toLowerCase();
+		if (labelText.includes('weight') || labelText.includes('amount') || labelText.includes('quantity'))
+		{
+			return true;
+		}
+	}
+	
+	return false;
 };
 
 Grocy.Components.HomeAssistantScale.FindTargetInput = function()
@@ -192,9 +248,23 @@ Grocy.Components.HomeAssistantScale.FindTargetInput = function()
 	return null;
 };
 
-Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
+Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback = function(inputElement)
 {
 	console.log('HA Scale: Detecting unit for input', inputElement.attr('id') || inputElement.attr('name'));
+	
+	// Priority check: Look for [input_id]_qu_unit pattern (edit stock entry)
+	var inputId = inputElement.attr('id');
+	if (inputId) {
+		var quUnitElement = $('#' + inputId + '_qu_unit');
+		console.log('HA Scale: Found qu_unit element:', quUnitElement.length > 0);
+		if (quUnitElement.length > 0) {
+			var unit = quUnitElement.text().trim().toLowerCase();
+			console.log('HA Scale: Unit from qu_unit element:', unit);
+			if (unit && unit.length > 0) {
+				return { unit: unit, isFallback: false };
+			}
+		}
+	}
 	
 	// Look for unit display elements near the input
 	var unitElement = inputElement.siblings('.input-group-text, .input-group-append .input-group-text');
@@ -203,7 +273,7 @@ Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
 	{
 		var unit = unitElement.text().trim().toLowerCase();
 		console.log('HA Scale: Unit from siblings:', unit);
-		return unit;
+		return { unit: unit, isFallback: false };
 	}
 	
 	// Look for unit in parent input group
@@ -230,7 +300,7 @@ Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
 			
 			if (unit) {
 				console.log('HA Scale: Unit from input group:', unit);
-				return unit.toLowerCase();
+				return { unit: unit.toLowerCase(), isFallback: false };
 			}
 		}
 	}
@@ -242,7 +312,7 @@ Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
 	{
 		var unit = nearbyUnit.text().trim().toLowerCase();
 		console.log('HA Scale: Unit from nearby elements:', unit);
-		return unit;
+		return { unit: unit, isFallback: false };
 	}
 	
 	// Check for quantity unit selector (purchase flow)
@@ -258,7 +328,7 @@ Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
 			console.log('HA Scale: Unit from qu_id selector:', unit);
 			if (unit && unit.length > 0)
 			{
-				return unit.toLowerCase();
+				return { unit: unit.toLowerCase(), isFallback: false };
 			}
 		}
 	}
@@ -272,13 +342,18 @@ Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
 		console.log('HA Scale: Unit from productamountpicker:', unit);
 		if (unit && unit.length > 0)
 		{
-			return unit.toLowerCase();
+			return { unit: unit.toLowerCase(), isFallback: false };
 		}
 	}
 	
 	console.log('HA Scale: No unit found, defaulting to grams');
 	// Default assumption: grams
-	return 'g';
+	return { unit: 'g', isFallback: true };
+};
+
+Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
+{
+	return Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(inputElement).unit;
 };
 
 Grocy.Components.HomeAssistantScale.ConvertFromGrams = function(weightInGrams, toUnit)
@@ -334,8 +409,10 @@ Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
 		return;
 	}
 	
-	// Get the expected unit from UI
-	var expectedUnit = Grocy.Components.HomeAssistantScale.GetExpectedUnit(targetInput);
+	// Get the expected unit from UI with fallback detection
+	var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(targetInput);
+	var expectedUnit = unitInfo.unit;
+	var isFallback = unitInfo.isFallback;
 	
 	// Convert weight from grams to expected unit
 	var convertedWeight = Grocy.Components.HomeAssistantScale.ConvertFromGrams(weight, expectedUnit);
@@ -359,7 +436,7 @@ Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
 	targetInput.removeAttr('data-ha-scale-target');
 	
 	// Update the refresh button state
-	Grocy.Components.HomeAssistantScale.UpdateRefreshButton(targetInput, true);
+	Grocy.Components.HomeAssistantScale.UpdateRefreshButton(targetInput, true, isFallback, expectedUnit);
 	
 	// Show notification with conversion info
 	if (typeof toastr !== 'undefined')
@@ -379,12 +456,33 @@ Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
 
 Grocy.Components.HomeAssistantScale.ClearInput = function(inputElement)
 {
+	// Clear any previously waiting inputs - only one should be waiting at a time
+	$('input[data-ha-scale-target="true"]').each(function() {
+		var prevInput = $(this);
+		if (prevInput[0] !== inputElement[0]) {
+			prevInput.removeAttr('data-ha-scale-target');
+			
+			// Only reset if it was waiting, not if it already received weight
+			if (prevInput.hasClass('ha-scale-waiting')) {
+				prevInput.removeClass('ha-scale-waiting');
+				
+				// Reset the refresh button to normal waiting state
+				var prevUnitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(prevInput);
+				Grocy.Components.HomeAssistantScale.UpdateRefreshButton(prevInput, false, prevUnitInfo.isFallback, prevUnitInfo.unit);
+			}
+			// If it was fulfilled, leave it as-is (keep the green/yellow button and value)
+		}
+	});
+	
 	// Clear the input value and reset state
 	inputElement.val('');
 	inputElement.removeClass('ha-scale-fulfilled');
 	
+	// Get unit info for the waiting state
+	var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(inputElement);
+	
 	// Update the refresh button state
-	Grocy.Components.HomeAssistantScale.UpdateRefreshButton(inputElement, false);
+	Grocy.Components.HomeAssistantScale.UpdateRefreshButton(inputElement, false, unitInfo.isFallback, unitInfo.unit);
 	
 	// Mark this input as the active target for weight updates
 	inputElement.attr('data-ha-scale-target', 'true');
@@ -404,21 +502,34 @@ Grocy.Components.HomeAssistantScale.ClearInput = function(inputElement)
 	}
 };
 
-Grocy.Components.HomeAssistantScale.UpdateRefreshButton = function(inputElement, isFulfilled)
+Grocy.Components.HomeAssistantScale.UpdateRefreshButton = function(inputElement, isFulfilled, isFallback, detectedUnit)
 {
 	var refreshButton = inputElement.siblings('.ha-scale-refresh-btn');
 	
 	if (isFulfilled)
 	{
-		refreshButton.removeClass('btn-outline-secondary').addClass('btn-success')
-			.html('<i class="fa-solid fa-refresh"></i>')
-			.attr('title', 'Clear and wait for new weight');
+		if (isFallback)
+		{
+			refreshButton.removeClass('btn-outline-secondary btn-success').addClass('btn-warning')
+				.html('<i class="fa-solid fa-refresh"></i>')
+				.attr('title', 'Clear and wait for new weight (unit not detected, using grams)');
+		}
+		else
+		{
+			refreshButton.removeClass('btn-outline-secondary btn-warning').addClass('btn-success')
+				.html('<i class="fa-solid fa-refresh"></i>')
+				.attr('title', 'Clear and wait for new weight (detected unit: ' + detectedUnit + ')');
+		}
 	}
 	else
 	{
-		refreshButton.removeClass('btn-success').addClass('btn-outline-secondary')
+		var tooltipText = isFallback ? 
+			'Waiting for stable weight (unit not detected, will use grams)' : 
+			'Waiting for stable weight (detected unit: ' + detectedUnit + ')';
+		
+		refreshButton.removeClass('btn-success btn-warning').addClass('btn-outline-secondary')
 			.html('<i class="fa-solid fa-scale-balanced"></i>')
-			.attr('title', 'Waiting for stable weight');
+			.attr('title', tooltipText);
 	}
 };
 
@@ -465,6 +576,7 @@ Grocy.Components.HomeAssistantScale.AddStyles = function()
 		'.ha-scale-waiting { border-color: #007bff !important; box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important; } ' +
 		'.ha-scale-fulfilled { border-color: #28a745 !important; } ' +
 		'.ha-scale-refresh-btn.btn-success { color: #fff; } ' +
+		'.ha-scale-refresh-btn.btn-warning { color: #fff; } ' +
 		'</style>';
 	
 	$('head').append(styles);
@@ -486,8 +598,14 @@ Grocy.Components.HomeAssistantScale.AddRefreshButtons = function()
 			return;
 		}
 		
+		// Get unit info for the initial tooltip
+		var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(input);
+		var tooltipText = unitInfo.isFallback ? 
+			'Waiting for stable weight (unit not detected, will use grams)' : 
+			'Waiting for stable weight (detected unit: ' + unitInfo.unit + ')';
+		
 		// Create refresh button
-		var refreshButton = $('<button type="button" class="btn btn-sm btn-outline-secondary ha-scale-refresh-btn" title="Waiting for stable weight">' +
+		var refreshButton = $('<button type="button" class="btn btn-sm btn-outline-secondary ha-scale-refresh-btn" title="' + tooltipText + '">' +
 			'<i class="fa-solid fa-scale-balanced"></i>' +
 			'</button>');
 		
