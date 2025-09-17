@@ -23,22 +23,16 @@
 		<form id="container-inventory-form" novalidate>
 
 			<div class="form-group">
-				<label for="barcode_input">{{ $__t('Container barcode') }}</label>
+				<label class="w-100" for="container_scanner">{{ $__t('Container barcode') }}
+					<i id="barcode-lookup-hint"
+						class="fa-solid fa-barcode float-right mt-1"></i>
+				</label>
 				<div class="input-group">
 					<input type="text"
 						class="form-control barcodescanner-input"
-						id="barcode_input"
-						name="barcode"
-						placeholder="{{ $__t('Scan or enter container barcode') }}"
-						data-target="#barcode_input"
+						id="container_scanner"
+						data-target="#container_scanner"
 						autocomplete="off">
-					<div class="input-group-append">
-						<button class="btn btn-outline-secondary"
-							type="button"
-							id="barcode_camera_button">
-							<i class="fa-solid fa-camera"></i>
-						</button>
-					</div>
 				</div>
 				<div class="invalid-feedback"></div>
 			</div>
@@ -201,5 +195,7 @@
 		</div>
 	</div>
 </div>
+
+@include('components.camerabarcodescanner')
 
 @stop

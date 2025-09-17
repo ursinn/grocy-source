@@ -101,7 +101,7 @@ $('#container-inventory-form').on('submit', function(e)
 			// Focus back to barcode input
 			setTimeout(function()
 			{
-				$('#barcode_input').focus();
+				$('#container_scanner').focus();
 			}, Grocy.FormFocusDelay);
 		}
 		else
@@ -124,7 +124,7 @@ $('#container-inventory-form').on('submit', function(e)
 });
 
 
-$('#barcode_input').on('blur', function()
+$('#container_scanner').on('blur', function()
 {
 	var barcode = $(this).val().trim();
 	if (barcode.length > 0)
@@ -133,7 +133,7 @@ $('#barcode_input').on('blur', function()
 	}
 });
 
-$('#barcode_input').on('keydown', function(e)
+$('#container_scanner').on('keydown', function(e)
 {
 	if (e.keyCode === 13) // Enter key
 	{
@@ -199,7 +199,7 @@ $('#barcode_camera_button').on('click', function()
 {
 	Grocy.Components.BarcodeScanner.StartScanning(function(result)
 	{
-		$('#barcode_input').val(result);
+		$('#container_scanner').val(result);
 		processBarcode(result);
 	});
 });
@@ -497,7 +497,7 @@ function loadAvailableStockEntries(type)
 function clearForm()
 {
 	// Clear all input fields
-	$('#barcode_input, #gross_weight, #net_weight, #source_stock_entry, #destination_stock_entry').val('');
+	$('#container_scanner, #gross_weight, #net_weight, #source_stock_entry, #destination_stock_entry').val('');
 	
 	// Reset radio buttons to default
 	$('#destination_consume').prop('checked', true);
@@ -515,7 +515,7 @@ function clearForm()
 	// Focus barcode input
 	setTimeout(function()
 	{
-		$('#barcode_input').focus();
+		$('#container_scanner').focus();
 	}, Grocy.FormFocusDelay);
 }
 
@@ -524,7 +524,7 @@ function showError(message)
 	toastr.error(message);
 	setTimeout(function()
 	{
-		$('#barcode_input').focus().select();
+		$('#container_scanner').focus().select();
 	}, Grocy.FormFocusDelay);
 }
 
@@ -645,7 +645,7 @@ $(document).ready(function()
 	// Focus on barcode input
 	setTimeout(function()
 	{
-		$('#barcode_input').focus();
+		$('#container_scanner').focus();
 	}, Grocy.FormFocusDelay);
 	
 	// Initialize tooltips
@@ -658,11 +658,11 @@ $(document).ready(function()
 // Handle barcode scanner integration 
 $(document).on("Grocy.BarcodeScanned", function(_, barcode, target)
 {
-	if (target !== "#barcode_input")
+	if (target !== "#container_scanner")
 	{
 		return;
 	}
 
-	$('#barcode_input').val(barcode);
+	$('#container_scanner').val(barcode);
 	processBarcode(barcode);
 });
