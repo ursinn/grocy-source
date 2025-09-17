@@ -51,6 +51,8 @@ $app->group('', function (RouteCollectorProxy $group)
 	$group->get('/consume', '\Grocy\Controllers\StockController:Consume');
 	$group->get('/transfer', '\Grocy\Controllers\StockController:Transfer');
 	$group->get('/inventory', '\Grocy\Controllers\StockController:Inventory');
+	$group->get('/inventory-container', '\Grocy\Controllers\InventoryContainerController:InventoryContainer');
+	$group->post('/inventory-container', '\Grocy\Controllers\InventoryContainerController:InventoryContainerPost');
 	$group->get('/stockentry/{entryId}', '\Grocy\Controllers\StockController:StockEntryEditForm');
 	$group->get('/stocksettings', '\Grocy\Controllers\StockController:StockSettings');
 	$group->get('/locations', '\Grocy\Controllers\StockController:LocationsList');

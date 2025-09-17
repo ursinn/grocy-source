@@ -317,6 +317,16 @@
 						<span class="nav-link-text">{{ $__t('Inventory') }}</span>
 					</a>
 				</li>
+				<li class="nav-item nav-item-sidebar permission-STOCK_INVENTORY @if($viewName == 'inventorycontainer') active-page @endif"
+					data-toggle="tooltip"
+					data-placement="right"
+					title="{{ $__t('Inventory container') }}">
+					<a class="nav-link discrete-link"
+						href="{{ $U('/inventory-container') }}">
+						<i class="fa-solid fa-fw fa-balance-scale"></i>
+						<span class="nav-link-text">{{ $__t('Container inventory') }}</span>
+					</a>
+				</li>
 				@endif
 				@if(GROCY_FEATURE_FLAG_CHORES)
 				<li class="nav-item nav-item-sidebar permission-CHORE_TRACK_EXECUTION @if($viewName == 'choretracking') active-page @endif"
