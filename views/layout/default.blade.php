@@ -781,6 +781,10 @@
 
 	@stack('pageScripts')
 	@stack('componentScripts')
+	
+	<!-- Home Assistant Scale Integration (Global) -->
+	<script src="{{ $U('/viewjs/components/homeassistantscale.js?v=', true) }}{{ $version }}"></script>
+	
 	<script src="{{ $U('/viewjs/' . $viewName . '.js?v=', true) }}{{ $version }}"></script>
 
 	@if(file_exists(GROCY_DATAPATH . '/custom_js.html'))
