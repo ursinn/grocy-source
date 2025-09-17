@@ -31,6 +31,7 @@
 					<input type="text"
 						class="form-control barcodescanner-input"
 						id="container_scanner"
+						name="container_tag"
 						data-target="#container_scanner"
 						autocomplete="off">
 				</div>
@@ -79,9 +80,9 @@
 							class="form-control locale-number-input"
 							id="gross_weight"
 							name="gross_weight"
-							step="0.01"
+							step="{{ $weight_precision_tolerance }}"
 							min="0"
-							placeholder="0.00">
+							placeholder="0">
 						<div class="input-group-append">
 							<span class="input-group-text" id="gross_weight_unit"></span>
 						</div>

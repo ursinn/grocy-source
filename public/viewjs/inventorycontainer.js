@@ -195,14 +195,7 @@ $('input[name="destination_type"]').on('change', function()
 	}
 });
 
-$('#barcode_camera_button').on('click', function()
-{
-	Grocy.Components.BarcodeScanner.StartScanning(function(result)
-	{
-		$('#container_scanner').val(result);
-		processBarcode(result);
-	});
-});
+// Barcode camera button removed - handled by global barcode scanner component
 
 function processBarcode(barcode)
 {

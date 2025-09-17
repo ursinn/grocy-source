@@ -231,9 +231,9 @@ class InventoryContainerController extends BaseController
 		try
 		{
 			// Validate required parameters
-			if (empty($requestBody['barcode']))
+			if (empty($requestBody['container_tag']))
 			{
-				throw new \Exception('Barcode is required');
+				throw new \Exception('Container tag barcode is required');
 			}
 
 			if (!isset($requestBody['gross_weight']) || $requestBody['gross_weight'] === '')
@@ -242,12 +242,12 @@ class InventoryContainerController extends BaseController
 			}
 
 			// Parse the Grocycode to get product_id and stock_id
-			if (!Grocycode::Validate($requestBody['barcode']))
+			if (!Grocycode::Validate($requestBody['container_tag']))
 			{
 				throw new \Exception('Invalid barcode format');
 			}
 
-			$grocycode = new Grocycode($requestBody['barcode']);
+			$grocycode = new Grocycode($requestBody['container_tag']);
 			if ($grocycode->GetType() != Grocycode::PRODUCT)
 			{
 				throw new \Exception('Barcode is not a product code');
