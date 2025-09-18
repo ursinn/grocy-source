@@ -1,5 +1,20 @@
 Grocy.Components.HomeAssistantScale = {};
 
+// Configuration constants
+Grocy.Components.HomeAssistantScale.CONSTANTS = {
+	CSS_CLASSES: {
+		FULFILLED: 'ha-scale-fulfilled',
+		WAITING: 'ha-scale-waiting',
+		AUTO_TARGETED: 'ha-scale-auto-targeted',
+		REFRESH_BTN: 'ha-scale-refresh-btn'
+	},
+	TIMEOUTS: {
+		RESET_DELAY: 100,
+		FORM_RESET_DELAY: 10,
+		RECONNECT_DELAY: 5000
+	}
+};
+
 Grocy.Components.HomeAssistantScale.Connection = null;
 Grocy.Components.HomeAssistantScale.IsConnected = false;
 Grocy.Components.HomeAssistantScale.ReconnectTimer = null;
@@ -230,19 +245,32 @@ Grocy.Components.HomeAssistantScale.IsWeightInput = function(element)
 
 Grocy.Components.HomeAssistantScale.FindTargetInput = function()
 {
+	var constants = Grocy.Components.HomeAssistantScale.CONSTANTS.CSS_CLASSES;
+	
 	// Priority 1: Explicitly marked waiting inputs
-	var waitingInputs = $('input[data-ha-scale-target="true"]:not(.ha-scale-fulfilled)');
-	if (waitingInputs.length > 0)
-	{
+	var waitingInputs = $('input[data-ha-scale-target="true"].' + constants.WAITING);
+	if (waitingInputs.length > 0) {
 		return waitingInputs.first();
 	}
 	
-	// Priority 2: Currently focused weight input that isn't fulfilled
 	var activeElement = document.activeElement;
-	if (Grocy.Components.HomeAssistantScale.IsWeightInput(activeElement) && 
-		!$(activeElement).hasClass('ha-scale-fulfilled'))
-	{
-		return $(activeElement);
+	if (!Grocy.Components.HomeAssistantScale.IsWeightInput(activeElement)) {
+		return null;
+	}
+	
+	var $activeElement = $(activeElement);
+	
+	// Priority 2: Currently focused weight input that is actively waiting
+	if ($activeElement.hasClass(constants.WAITING)) {
+		return $activeElement;
+	}
+	
+	// Priority 3: First time focus on weight input (not previously auto-targeted or fulfilled)
+	if (!$activeElement.hasClass(constants.FULFILLED) && 
+		!$activeElement.hasClass(constants.AUTO_TARGETED)) {
+		// Mark as auto-targeted to prevent automatic re-targeting
+		$activeElement.addClass(constants.AUTO_TARGETED);
+		return $activeElement;
 	}
 	
 	return null;
@@ -363,40 +391,39 @@ Grocy.Components.HomeAssistantScale.ConvertFromGrams = function(weightInGrams, t
 	// Normalize unit
 	toUnit = toUnit.toLowerCase();
 	
-	// If target is grams, no conversion needed
-	if (toUnit === 'g' || toUnit === 'gram' || toUnit === 'grams')
-	{
-		return weightInGrams;
+	// Define conversion factors
+	var conversionFactors = {
+		'g': 1, 'gram': 1, 'grams': 1,
+		'kg': 1000, 'kilo': 1000, 'kilogram': 1000, 'kilograms': 1000,
+		'lb': 453.592, 'lbs': 453.592, 'pound': 453.592, 'pounds': 453.592,
+		'oz': 28.3495, 'ounce': 28.3495, 'ounces': 28.3495
+	};
+	
+	var factor = conversionFactors[toUnit];
+	if (factor === undefined) {
+		console.log('HA Scale: Unknown unit:', toUnit, 'using grams');
+		factor = 1;
 	}
 	
-	// Convert from grams to target unit
-	var result = weightInGrams;
-	switch(toUnit)
-	{
-		case 'kg':
-		case 'kilo':
-		case 'kilogram':
-		case 'kilograms':
-			result = weightInGrams / 1000;
-			break;
-		case 'lb':
-		case 'lbs':
-		case 'pound':
-		case 'pounds':
-			result = weightInGrams / 453.592;
-			break;
-		case 'oz':
-		case 'ounce':
-		case 'ounces':
-			result = weightInGrams / 28.3495;
-			break;
-		default:
-			console.log('HA Scale: Unknown unit:', toUnit, 'using grams');
-			result = weightInGrams;
-	}
-	
+	var result = weightInGrams / factor;
 	console.log('HA Scale: Converted result:', result, toUnit);
 	return result;
+};
+
+Grocy.Components.HomeAssistantScale.GetDecimalPrecision = function(targetInput)
+{
+	var maxDecimalPlaces = Grocy.UserSettings.stock_decimal_places_amounts;
+	
+	// Check if the input has a step attribute that implies decimal precision
+	var stepAttr = targetInput.attr('step');
+	if (stepAttr && stepAttr.includes('.')) {
+		var stepDecimals = stepAttr.split('.')[1].length;
+		if (stepDecimals > 0 && stepDecimals < maxDecimalPlaces) {
+			maxDecimalPlaces = stepDecimals;
+		}
+	}
+	
+	return maxDecimalPlaces;
 };
 
 Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
@@ -417,10 +444,17 @@ Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
 	// Convert weight from grams to expected unit
 	var convertedWeight = Grocy.Components.HomeAssistantScale.ConvertFromGrams(weight, expectedUnit);
 	
-	// Format the weight with dot decimal separator for JavaScript compatibility
+	// Get decimal precision and format the weight appropriately
+	var maxDecimalPlaces = Grocy.Components.HomeAssistantScale.GetDecimalPrecision(targetInput);
+	
+	// Round to prevent floating-point precision issues
+	var roundingFactor = Math.pow(10, maxDecimalPlaces);
+	convertedWeight = Math.round(convertedWeight * roundingFactor) / roundingFactor;
+	
+	// Format with consistent decimal handling
 	var formattedWeight = convertedWeight.toLocaleString('en-US', {
 		minimumFractionDigits: 0,
-		maximumFractionDigits: Grocy.UserSettings.stock_decimal_places_amounts || 4
+		maximumFractionDigits: maxDecimalPlaces
 	});
 	
 	console.log('Home Assistant scale integration: Converting', weight, 'grams to', convertedWeight, expectedUnit);
@@ -624,10 +658,10 @@ Grocy.Components.HomeAssistantScale.AddRefreshButtons = function()
 Grocy.Components.HomeAssistantScale.ResetFormInputs = function()
 {
 	// Reset all HA scale state from inputs
-	$('input.ha-scale-fulfilled, input.ha-scale-waiting, input[data-ha-scale-target]').each(function()
+	$('input.ha-scale-fulfilled, input.ha-scale-waiting, input.ha-scale-auto-targeted, input[data-ha-scale-target]').each(function()
 	{
 		var input = $(this);
-		input.removeClass('ha-scale-fulfilled ha-scale-waiting');
+		input.removeClass('ha-scale-fulfilled ha-scale-waiting ha-scale-auto-targeted');
 		input.removeAttr('data-ha-scale-target');
 		
 		// Reset refresh button to default state
@@ -646,87 +680,64 @@ Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = false;
 
 Grocy.Components.HomeAssistantScale.WrapGrocyComponents = function()
 {
-	if (Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled) {
-		return; // Already installed
-	}
+	// Disable component wrapping entirely to prevent premature resets
+	console.log('Home Assistant scale integration: Component wrapping disabled to prevent premature input resets');
+	Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = true;
+};
+
+Grocy.Components.HomeAssistantScale.IsStockOperationSuccess = function(message)
+{
+	if (!message) return false;
 	
-	// Wait for Grocy components to be available
-	var checkComponents = function() {
-		if (typeof Grocy === 'undefined' || typeof Grocy.Components === 'undefined') {
-			console.log('Home Assistant scale integration: Waiting for Grocy.Components...');
-			setTimeout(checkComponents, 500);
-			return;
+	var successPatterns = [
+		{terms: [__t('Added'), __t('stock')]},
+		{terms: [__t('Removed'), __t('stock')]},
+		{terms: [__t('Transferred')]},
+		{terms: [__t('Inventory saved successfully')]},
+		{terms: [__t('Marked'), __t('opened')]}
+	];
+	
+	return successPatterns.some(function(pattern) {
+		return pattern.terms.every(function(term) {
+			return message.includes(term);
+		});
+	});
+};
+
+Grocy.Components.HomeAssistantScale.SetupToastrHook = function()
+{
+	if (typeof toastr === 'undefined' || !toastr.success) return;
+	
+	var timeouts = Grocy.Components.HomeAssistantScale.CONSTANTS.TIMEOUTS;
+	var originalToastrSuccess = toastr.success;
+	
+	toastr.success = function(message, title, options) {
+		if (Grocy.Components.HomeAssistantScale.IsStockOperationSuccess(message)) {
+			console.log('Home Assistant scale integration: Detected successful stock operation, resetting HA scale inputs');
+			setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, timeouts.RESET_DELAY);
 		}
 		
-		// Wrap ProductPicker.Clear() - called when forms are successfully reset
-		if (Grocy.Components.ProductPicker && typeof Grocy.Components.ProductPicker.Clear === 'function') {
-			var originalProductPickerClear = Grocy.Components.ProductPicker.Clear;
-			Grocy.Components.ProductPicker.Clear = function() {
-				try {
-					// Call the original Clear method first
-					var result = originalProductPickerClear.apply(this, arguments);
-					
-					// Only reset HA scale if the original method completed successfully (no exception)
-					console.log('Home Assistant scale integration: ProductPicker.Clear() completed successfully, resetting HA scale inputs');
-					setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 10);
-					
-					return result;
-				} catch (error) {
-					console.error('Home Assistant scale integration: ProductPicker.Clear() failed, not resetting HA scale inputs:', error);
-					// Re-throw the original error
-					throw error;
-				}
-			};
-		}
-		
-		// Wrap ProductAmountPicker.Reset() - also called during form resets
-		if (Grocy.Components.ProductAmountPicker && typeof Grocy.Components.ProductAmountPicker.Reset === 'function') {
-			var originalProductAmountPickerReset = Grocy.Components.ProductAmountPicker.Reset;
-			Grocy.Components.ProductAmountPicker.Reset = function() {
-				try {
-					// Call the original Reset method first
-					var result = originalProductAmountPickerReset.apply(this, arguments);
-					
-					// Only reset HA scale if the original method completed successfully (no exception)
-					console.log('Home Assistant scale integration: ProductAmountPicker.Reset() completed successfully, resetting HA scale inputs');
-					setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 10);
-					
-					return result;
-				} catch (error) {
-					console.error('Home Assistant scale integration: ProductAmountPicker.Reset() failed, not resetting HA scale inputs:', error);
-					// Re-throw the original error
-					throw error;
-				}
-			};
-		}
-		
-		Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = true;
-		console.log('Home Assistant scale integration: Component wrappers installed successfully');
+		return originalToastrSuccess.call(this, message, title, options);
 	};
-	
-	checkComponents();
 };
 
 Grocy.Components.HomeAssistantScale.SetupFormEventHandlers = function()
 {
-	// Handle traditional form submissions (fallback for non-AJAX forms)
-	$(document).on('submit', 'form', function()
-	{
-		setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 100);
+	var timeouts = Grocy.Components.HomeAssistantScale.CONSTANTS.TIMEOUTS;
+	
+	// Handle explicit form resets only
+	$(document).on('reset', 'form', function() {
+		setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, timeouts.FORM_RESET_DELAY);
 	});
 	
-	// Handle explicit form resets
-	$(document).on('reset', 'form', function()
-	{
-		setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 10);
-	});
+	// Monitor for successful AJAX operations via toastr success messages
+	Grocy.Components.HomeAssistantScale.SetupToastrHook();
 	
-	// Wrap Grocy's own component reset methods - this ensures we only reset when Grocy actually resets
+	// Wrap Grocy's own component reset methods
 	Grocy.Components.HomeAssistantScale.WrapGrocyComponents();
 	
 	// Handle page navigation/reload
-	$(window).on('beforeunload', function()
-	{
+	$(window).on('beforeunload', function() {
 		Grocy.Components.HomeAssistantScale.ResetFormInputs();
 	});
 };
