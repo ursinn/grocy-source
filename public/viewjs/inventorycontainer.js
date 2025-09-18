@@ -55,6 +55,9 @@ $('#container-inventory-form').on('submit', function(e)
 	// Validate gross weight first
 	validateGrossWeight();
 	
+	// Validate stock source/destination if required
+	validateStockSourceDestination();
+	
 	if (!Grocy.FrontendHelpers.ValidateForm("container-inventory-form", true))
 	{
 		return;
@@ -62,6 +65,12 @@ $('#container-inventory-form').on('submit', function(e)
 	
 	// Additional check: prevent submission if gross weight is invalid
 	if ($('#gross_weight').hasClass('is-invalid'))
+	{
+		return;
+	}
+	
+	// Additional check: prevent submission if stock source/destination validation failed
+	if ($('#source_stock_entry').hasClass('is-invalid') || $('#destination_stock_entry').hasClass('is-invalid'))
 	{
 		return;
 	}
@@ -177,6 +186,47 @@ function validateGrossWeight()
 	return false;
 }
 
+function validateStockSourceDestination()
+{
+	// Clear any existing validation states
+	setFieldValidation('source_stock_entry', true, '');
+	setFieldValidation('destination_stock_entry', true, '');
+	
+	// Only validate if we have a current stock entry and the fields are visible
+	if (!CurrentStockEntry)
+	{
+		return;
+	}
+	
+	// Check if stock source is required (when stock increased)
+	if (!$('#stock-source-group').hasClass('d-none'))
+	{
+		var sourceStockEntry = $('#source_stock_entry').val();
+		if (!sourceStockEntry)
+		{
+			setFieldValidation('source_stock_entry', false, __t('Please select where this stock came from'));
+			return false;
+		}
+	}
+	
+	// Check if stock destination is required (when stock decreased and transfer is selected)
+	if (!$('#stock-destination-group').hasClass('d-none'))
+	{
+		var destinationType = $('input[name="destination_type"]:checked').val();
+		if (destinationType === 'transfer')
+		{
+			var destinationStockEntry = $('#destination_stock_entry').val();
+			if (!destinationStockEntry)
+			{
+				setFieldValidation('destination_stock_entry', false, __t('Please select destination stock entry'));
+				return false;
+			}
+		}
+	}
+	
+	return true;
+}
+
 $('#clear-form').on('click', function()
 {
 	clearForm();
@@ -192,7 +242,20 @@ $('input[name="destination_type"]').on('change', function()
 	else
 	{
 		$('#destination-stock-entry').addClass('d-none');
+		// Clear validation when hiding destination entry
+		setFieldValidation('destination_stock_entry', true, '');
 	}
+});
+
+// Add validation triggers for stock source/destination selections
+$('#source_stock_entry').on('change', function()
+{
+	validateStockSourceDestination();
+});
+
+$('#destination_stock_entry').on('change', function()
+{
+	validateStockSourceDestination();
 });
 
 // Barcode camera button removed - handled by global barcode scanner component
@@ -382,6 +445,10 @@ function updateInventoryScenario(netWeight)
 	$('#stock-source-group').addClass('d-none');
 	$('#stock-destination-group').addClass('d-none');
 	
+	// Clear validation when hiding fields
+	setFieldValidation('source_stock_entry', true, '');
+	setFieldValidation('destination_stock_entry', true, '');
+	
 	if (!CurrentStockEntry || netWeight <= 0)
 	{
 		return;
@@ -412,6 +479,10 @@ function updateInventoryScenario(netWeight)
 			__t('Stock increased by %1$s. Please specify where this stock came from.', formatAmountWithUnit(difference)));
 		$('#stock-source-group').removeClass('d-none');
 		loadAvailableStockEntries('source');
+		// Trigger validation since we now require a source
+		setTimeout(function() {
+			validateStockSourceDestination();
+		}, 100);
 	}
 	else if (difference < 0) // Stock decreased
 	{
@@ -422,6 +493,8 @@ function updateInventoryScenario(netWeight)
 		// Always reset to "Consumed" as default
 		$('#destination_consume').prop('checked', true);
 		$('#destination-stock-entry').addClass('d-none');
+		// Clear validation since consume doesn't require destination selection
+		setFieldValidation('destination_stock_entry', true, '');
 	}
 	
 	if (scenarioHtml)

@@ -621,6 +621,116 @@ Grocy.Components.HomeAssistantScale.AddRefreshButtons = function()
 	});
 };
 
+Grocy.Components.HomeAssistantScale.ResetFormInputs = function()
+{
+	// Reset all HA scale state from inputs
+	$('input.ha-scale-fulfilled, input.ha-scale-waiting, input[data-ha-scale-target]').each(function()
+	{
+		var input = $(this);
+		input.removeClass('ha-scale-fulfilled ha-scale-waiting');
+		input.removeAttr('data-ha-scale-target');
+		
+		// Reset refresh button to default state
+		var refreshButton = input.siblings('.ha-scale-refresh-btn');
+		if (refreshButton.length > 0)
+		{
+			var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(input);
+			Grocy.Components.HomeAssistantScale.UpdateRefreshButton(input, false, unitInfo.isFallback, unitInfo.unit);
+		}
+	});
+	
+	console.log('Home Assistant scale integration: Reset all input states');
+};
+
+Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = false;
+
+Grocy.Components.HomeAssistantScale.WrapGrocyComponents = function()
+{
+	if (Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled) {
+		return; // Already installed
+	}
+	
+	// Wait for Grocy components to be available
+	var checkComponents = function() {
+		if (typeof Grocy === 'undefined' || typeof Grocy.Components === 'undefined') {
+			console.log('Home Assistant scale integration: Waiting for Grocy.Components...');
+			setTimeout(checkComponents, 500);
+			return;
+		}
+		
+		// Wrap ProductPicker.Clear() - called when forms are successfully reset
+		if (Grocy.Components.ProductPicker && typeof Grocy.Components.ProductPicker.Clear === 'function') {
+			var originalProductPickerClear = Grocy.Components.ProductPicker.Clear;
+			Grocy.Components.ProductPicker.Clear = function() {
+				try {
+					// Call the original Clear method first
+					var result = originalProductPickerClear.apply(this, arguments);
+					
+					// Only reset HA scale if the original method completed successfully (no exception)
+					console.log('Home Assistant scale integration: ProductPicker.Clear() completed successfully, resetting HA scale inputs');
+					setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 10);
+					
+					return result;
+				} catch (error) {
+					console.error('Home Assistant scale integration: ProductPicker.Clear() failed, not resetting HA scale inputs:', error);
+					// Re-throw the original error
+					throw error;
+				}
+			};
+		}
+		
+		// Wrap ProductAmountPicker.Reset() - also called during form resets
+		if (Grocy.Components.ProductAmountPicker && typeof Grocy.Components.ProductAmountPicker.Reset === 'function') {
+			var originalProductAmountPickerReset = Grocy.Components.ProductAmountPicker.Reset;
+			Grocy.Components.ProductAmountPicker.Reset = function() {
+				try {
+					// Call the original Reset method first
+					var result = originalProductAmountPickerReset.apply(this, arguments);
+					
+					// Only reset HA scale if the original method completed successfully (no exception)
+					console.log('Home Assistant scale integration: ProductAmountPicker.Reset() completed successfully, resetting HA scale inputs');
+					setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 10);
+					
+					return result;
+				} catch (error) {
+					console.error('Home Assistant scale integration: ProductAmountPicker.Reset() failed, not resetting HA scale inputs:', error);
+					// Re-throw the original error
+					throw error;
+				}
+			};
+		}
+		
+		Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = true;
+		console.log('Home Assistant scale integration: Component wrappers installed successfully');
+	};
+	
+	checkComponents();
+};
+
+Grocy.Components.HomeAssistantScale.SetupFormEventHandlers = function()
+{
+	// Handle traditional form submissions (fallback for non-AJAX forms)
+	$(document).on('submit', 'form', function()
+	{
+		setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 100);
+	});
+	
+	// Handle explicit form resets
+	$(document).on('reset', 'form', function()
+	{
+		setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, 10);
+	});
+	
+	// Wrap Grocy's own component reset methods - this ensures we only reset when Grocy actually resets
+	Grocy.Components.HomeAssistantScale.WrapGrocyComponents();
+	
+	// Handle page navigation/reload
+	$(window).on('beforeunload', function()
+	{
+		Grocy.Components.HomeAssistantScale.ResetFormInputs();
+	});
+};
+
 Grocy.Components.HomeAssistantScale.InitDone = false;
 Grocy.Components.HomeAssistantScale.Init = function()
 {
@@ -643,6 +753,9 @@ Grocy.Components.HomeAssistantScale.Init = function()
 	
 	// Add CSS for visual feedback
 	Grocy.Components.HomeAssistantScale.AddStyles();
+	
+	// Setup form event handlers for cleanup
+	Grocy.Components.HomeAssistantScale.SetupFormEventHandlers();
 
 	Grocy.Components.HomeAssistantScale.InitDone = true;
 };
