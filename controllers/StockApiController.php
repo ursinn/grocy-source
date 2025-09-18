@@ -699,12 +699,14 @@ class StockApiController extends BaseApiController
 		{
 			$stockEntry = $this->getDatabase()->stock()->where('id', $args['entryId'])->fetch();
 			$productDetails = (object)$this->getStockService()->GetProductDetails($stockEntry->product_id);
+			$stockEntryUserfields = $this->getUserfieldsService()->GetValues('stock', $stockEntry->stock_id);
 
 			$webhookData = array_merge([
 				'product' => $productDetails->product->name,
 				'grocycode' => (string)(new Grocycode(Grocycode::PRODUCT, $stockEntry->product_id, [$stockEntry->stock_id])),
 				'details' => $productDetails,
 				'stock_entry' => $stockEntry,
+				'stock_entry_userfields' => $stockEntryUserfields,
 			], GROCY_LABEL_PRINTER_PARAMS);
 
 			if (GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING)
