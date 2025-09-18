@@ -467,7 +467,15 @@ class StockService extends BaseService
 					]);
 					$logRow->save();
 
-					$stockEntry->delete();
+					// Only delete if stock entry has no userfields, otherwise set amount to 0
+					if ($this->StockEntryHasUserfields($stockEntry->stock_id))
+					{
+						$stockEntry->update(['amount' => 0]);
+					}
+					else
+					{
+						$stockEntry->delete();
+					}
 
 					$amount -= $stockEntry->amount;
 
@@ -1440,7 +1448,7 @@ class StockService extends BaseService
 					'amount' => $amount,
 					'best_before_date' => $newBestBeforeDate,
 					'purchased_date' => $stockEntry->purchased_date,
-					'stock_id' => $stockEntry->stock_id,
+					'stock_id' => uniqid(),
 					'price' => $stockEntry->price,
 					'location_id' => $locationIdTo,
 					'shopping_location_id' => $stockEntry->shopping_location_id,
@@ -1485,9 +1493,19 @@ class StockService extends BaseService
 
 		if ($logRow->transaction_type === self::TRANSACTION_TYPE_PURCHASE || ($logRow->transaction_type === self::TRANSACTION_TYPE_INVENTORY_CORRECTION && $logRow->amount > 0))
 		{
-			// Remove corresponding stock entry
+			// Remove corresponding stock entry, but preserve if it has userfields
 			$stockRows = $this->getDatabase()->stock()->where('stock_id', $logRow->stock_id);
-			$stockRows->delete();
+			foreach ($stockRows as $stockRow)
+			{
+				if ($this->StockEntryHasUserfields($stockRow->stock_id))
+				{
+					$stockRow->update(['amount' => 0]);
+				}
+				else
+				{
+					$stockRow->delete();
+				}
+			}
 
 			// Update log entry
 			$logRow->update([
@@ -1529,7 +1547,15 @@ class StockService extends BaseService
 			$newAmount = $stockRow->amount - $logRow->amount;
 			if ($newAmount == 0)
 			{
-				$stockRow->delete();
+				// Only delete if stock entry has no userfields, otherwise set amount to 0
+				if ($this->StockEntryHasUserfields($stockRow->stock_id))
+				{
+					$stockRow->update(['amount' => 0]);
+				}
+				else
+				{
+					$stockRow->delete();
+				}
 			}
 			else
 			{
@@ -1704,6 +1730,12 @@ class StockService extends BaseService
 
 	public function CompactStockEntries($productId = null)
 	{
+		// DISABLED: Stock compaction logic doesn't make sense - if entries were split due to 
+		// legitimate operations (opening, consuming, transferring), they should remain separate
+		// to maintain accurate tracking of different states/locations
+		return;
+		
+		/*
 		if ($productId == null)
 		{
 			$splittedStockEntries = $this->getDatabase()->stock_splits();
@@ -1748,6 +1780,7 @@ class StockService extends BaseService
 			}
 			$this->getDatabaseService()->GetDbConnectionRaw()->commit();
 		}
+		*/
 	}
 
 	private function LoadExternalBarcodeLookupPlugin()
@@ -1793,5 +1826,11 @@ class StockService extends BaseService
 	{
 		$shoppingListRow = $this->getDatabase()->shopping_lists()->where('id = :1', $listId)->fetch();
 		return $shoppingListRow !== null;
+	}
+
+	private function StockEntryHasUserfields($stockId)
+	{
+		$userfieldValues = $this->getDatabase()->userfield_values_resolved()->where('entity = :1 AND object_id = :2', 'stock', $stockId)->fetch();
+		return $userfieldValues !== null;
 	}
 }
