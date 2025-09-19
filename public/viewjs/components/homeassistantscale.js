@@ -1,944 +1,1468 @@
-Grocy.Components.HomeAssistantScale = {};
-
-// Configuration constants
-Grocy.Components.HomeAssistantScale.CONSTANTS = {
-	CSS_CLASSES: {
-		FULFILLED: 'ha-scale-fulfilled',
-		WAITING: 'ha-scale-waiting',
-		AUTO_TARGETED: 'ha-scale-auto-targeted',
-		REFRESH_BTN: 'ha-scale-refresh-btn'
-	},
-	TIMEOUTS: {
-		RESET_DELAY: 100,
-		FORM_RESET_DELAY: 10,
-		RECONNECT_DELAY: 5000
-	}
-};
-
-Grocy.Components.HomeAssistantScale.Connection = null;
-Grocy.Components.HomeAssistantScale.IsConnected = false;
-Grocy.Components.HomeAssistantScale.ReconnectTimer = null;
-Grocy.Components.HomeAssistantScale.ScaleEntityId = null;
-Grocy.Components.HomeAssistantScale.HaUrl = null;
-Grocy.Components.HomeAssistantScale.HaToken = null;
-
-Grocy.Components.HomeAssistantScale.Connect = function()
-{
-	// Check if configuration is available
-	if (!Grocy.Components.HomeAssistantScale.HaUrl || !Grocy.Components.HomeAssistantScale.HaToken || !Grocy.Components.HomeAssistantScale.ScaleEntityId)
-	{
-		console.log('Home Assistant scale integration: Missing configuration');
-		return;
-	}
-
-	if (Grocy.Components.HomeAssistantScale.IsConnected)
-	{
-		return;
-	}
-
-	try
-	{
-		console.log('Home Assistant scale integration: Connecting to', Grocy.Components.HomeAssistantScale.HaUrl);
-		
-		// Create WebSocket connection to Home Assistant
-		var wsUrl = Grocy.Components.HomeAssistantScale.HaUrl.replace(/^http/, 'ws') + '/api/websocket';
-		var ws = new WebSocket(wsUrl);
-		
-		var messageId = 1;
-		var authCompleted = false;
-
-		ws.onopen = function()
-		{
-			console.log('Home Assistant scale integration: WebSocket connected');
-		};
-
-		ws.onmessage = function(event)
-		{
-			var message = JSON.parse(event.data);
+// Centralized constants for the entire HA Scale system
+class HAScaleConstants {
+	static get CONFIG() {
+		return Object.freeze({
+			// Timing
+			DEBOUNCE_DELAY: 300,
+			CACHE_TTL: 30000,
+			STABLE_WEIGHT_DEBOUNCE: 100,
+			RECONNECT_DELAY: 5000,
+			CONNECTION_TIMEOUT: 10000,
+			INPUT_DEBOUNCE: 100,
 			
-			if (message.type === 'auth_required')
-			{
-				// Send authentication
-				ws.send(JSON.stringify({
-					type: 'auth',
-					access_token: Grocy.Components.HomeAssistantScale.HaToken
-				}));
-			}
-			else if (message.type === 'auth_ok')
-			{
-				console.log('Home Assistant scale integration: Authentication successful');
-				authCompleted = true;
-				Grocy.Components.HomeAssistantScale.IsConnected = true;
-				
-				// Subscribe to state changes for the scale entity
-				ws.send(JSON.stringify({
-					id: messageId++,
-					type: 'subscribe_events',
-					event_type: 'state_changed'
-				}));
-			}
-			else if (message.type === 'auth_invalid')
-			{
-				console.error('Home Assistant scale integration: Authentication failed');
-				Grocy.Components.HomeAssistantScale.Disconnect();
-			}
-			else if (message.type === 'event')
-			{
-				Grocy.Components.HomeAssistantScale.HandleStateChange(message.event);
-			}
-		};
-
-		ws.onclose = function(event)
-		{
-			console.log('Home Assistant scale integration: WebSocket disconnected');
-			Grocy.Components.HomeAssistantScale.IsConnected = false;
-			Grocy.Components.HomeAssistantScale.Connection = null;
+			// Precision
+			DEFAULT_DECIMAL_PLACES: 4,
+			MAX_DECIMAL_PLACES: 10,
+			MIN_DECIMAL_PLACES: 0,
 			
-			// Attempt to reconnect after 5 seconds
-			if (authCompleted)
-			{
-				clearTimeout(Grocy.Components.HomeAssistantScale.ReconnectTimer);
-				Grocy.Components.HomeAssistantScale.ReconnectTimer = setTimeout(function()
-				{
-					Grocy.Components.HomeAssistantScale.Connect();
-				}, 5000);
-			}
-		};
-
-		ws.onerror = function(error)
-		{
-			console.error('Home Assistant scale integration: WebSocket error', error);
-		};
-
-		Grocy.Components.HomeAssistantScale.Connection = ws;
-	}
-	catch (error)
-	{
-		console.error('Home Assistant scale integration: Connection error', error);
-	}
-};
-
-Grocy.Components.HomeAssistantScale.Disconnect = function()
-{
-	if (Grocy.Components.HomeAssistantScale.Connection)
-	{
-		Grocy.Components.HomeAssistantScale.Connection.close();
-		Grocy.Components.HomeAssistantScale.Connection = null;
-	}
-	
-	Grocy.Components.HomeAssistantScale.IsConnected = false;
-	
-	if (Grocy.Components.HomeAssistantScale.ReconnectTimer)
-	{
-		clearTimeout(Grocy.Components.HomeAssistantScale.ReconnectTimer);
-		Grocy.Components.HomeAssistantScale.ReconnectTimer = null;
-	}
-};
-
-Grocy.Components.HomeAssistantScale.HandleStateChange = function(event)
-{
-	// Only process state changes for our scale entity
-	if (event.data && event.data.entity_id === Grocy.Components.HomeAssistantScale.ScaleEntityId)
-	{
-		var newState = event.data.new_state;
-		
-		if (newState && newState.state !== undefined && newState.attributes)
-		{
-			var newWeight = parseFloat(newState.state);
-			var isStable = newState.attributes.is_stable === true;
+			// Storage keys
+			STORAGE_KEYS: {
+				HA_URL: 'grocy_ha_scale_ha_url',
+				HA_TOKEN: 'grocy_ha_scale_ha_token',
+				SCALE_ENTITY_ID: 'grocy_ha_scale_ha_entity_id',
+				DEBUG_MODE: 'grocy_ha_scale_debug'
+			},
 			
-			// Only process if the reading is stable and is a valid weight value
-			if (isStable && !isNaN(newWeight))
-			{
-				console.log('Home Assistant scale integration: Stable weight detected:', newWeight);
-				
-				// Trigger weight update event
-				$(document).trigger("Grocy.ScaleWeightChanged", [newWeight, newState.attributes]);
-				
-				// Auto-populate focused weight input immediately
-				Grocy.Components.HomeAssistantScale.PopulateWeightInput(newWeight);
+			// Hotkeys
+			HOTKEYS: {
+				TRIGGER_SCALE: 'Alt+S' // Default hotkey to trigger scale reading
+			},
+			
+			// CSS Classes
+			CSS_CLASSES: {
+				AUTO_TARGETED: 'ha-scale-auto-targeted',
+				BUTTON_BASE: 'ha-scale-refresh-btn',
+				BUTTON_WAITING: 'ha-scale-waiting-btn',
+				BUTTON_SUCCESS: 'btn-success',
+				BUTTON_WARNING: 'btn-warning',
+				BUTTON_IDLE: 'btn-outline-secondary',
+				INPUT_FULFILLED: 'ha-scale-fulfilled',
+				INPUT_WAITING: 'ha-scale-waiting'
 			}
-			else if (!isStable)
-			{
-				console.log('Home Assistant scale integration: Weight reading not stable, ignoring:', newWeight);
-			}
-		}
-	}
-};
-
-Grocy.Components.HomeAssistantScale.IsWeightInput = function(element)
-{
-	if (!element || !$(element).is('input')) return false;
-	
-	var $element = $(element);
-	
-	// Skip readonly or disabled inputs
-	if ($element.prop('readonly') || $element.prop('disabled'))
-	{
-		return false;
-	}
-	
-	var id = element.id || '';
-	var name = element.name || '';
-	var className = element.className || '';
-	
-	// Check id, name, and class attributes
-	if (id.includes('weight') || id.includes('amount') || id.includes('quantity') ||
-		name.includes('weight') || name.includes('amount') || name.includes('quantity') ||
-		className.includes('weight') || className.includes('amount') || className.includes('quantity'))
-	{
-		return true;
-	}
-	
-	// Check data attributes for weight-related terms
-	var dataAttrs = $element.data();
-	for (var key in dataAttrs) {
-		if (dataAttrs.hasOwnProperty(key)) {
-			var value = String(dataAttrs[key]).toLowerCase();
-			if (value.includes('weight') || value.includes('amount') || value.includes('quantity')) {
-				return true;
-			}
-		}
-	}
-	
-	// Check associated label text
-	var label = null;
-	
-	// Find label by 'for' attribute (only if id exists and is not empty)
-	if (id && id.trim())
-	{
-		label = $('label[for="' + id + '"]');
-	}
-	
-	// Find label as parent or sibling
-	if (!label || label.length === 0)
-	{
-		label = $element.closest('label');
-		if (label.length === 0)
-		{
-			label = $element.siblings('label');
-		}
-	}
-	
-	// Find label within the same form group or container
-	if (!label || label.length === 0)
-	{
-		var container = $element.closest('.form-group, .input-group, .field');
-		if (container.length > 0)
-		{
-			label = container.find('label').first();
-		}
-	}
-	
-	// Check label text for weight-related words
-	if (label && label.length > 0)
-	{
-		var labelText = label.text().toLowerCase();
-		if (labelText.includes('weight') || labelText.includes('amount') || labelText.includes('quantity'))
-		{
-			return true;
-		}
-	}
-	
-	return false;
-};
-
-Grocy.Components.HomeAssistantScale.FindTargetInput = function()
-{
-	var constants = Grocy.Components.HomeAssistantScale.CONSTANTS.CSS_CLASSES;
-	
-	// Priority 1: Explicitly marked waiting inputs
-	var waitingInputs = $('input[data-ha-scale-target="true"].' + constants.WAITING);
-	if (waitingInputs.length > 0) {
-		return waitingInputs.first();
-	}
-	
-	var activeElement = document.activeElement;
-	if (!Grocy.Components.HomeAssistantScale.IsWeightInput(activeElement)) {
-		return null;
-	}
-	
-	var $activeElement = $(activeElement);
-	
-	// Priority 2: Currently focused weight input that is actively waiting
-	if ($activeElement.hasClass(constants.WAITING)) {
-		return $activeElement;
-	}
-	
-	// Priority 3: First time focus on weight input (not previously auto-targeted or fulfilled)
-	if (!$activeElement.hasClass(constants.FULFILLED) && 
-		!$activeElement.hasClass(constants.AUTO_TARGETED)) {
-		// Mark as auto-targeted to prevent automatic re-targeting
-		$activeElement.addClass(constants.AUTO_TARGETED);
-		return $activeElement;
-	}
-	
-	return null;
-};
-
-Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback = function(inputElement)
-{
-	console.log('HA Scale: Detecting unit for input', inputElement.attr('id') || inputElement.attr('name'));
-	
-	// Priority check: Look for [input_id]_qu_unit pattern (edit stock entry)
-	var inputId = inputElement.attr('id');
-	if (inputId) {
-		var quUnitElement = $('#' + inputId + '_qu_unit');
-		console.log('HA Scale: Found qu_unit element:', quUnitElement.length > 0);
-		if (quUnitElement.length > 0) {
-			var unit = quUnitElement.text().trim().toLowerCase();
-			console.log('HA Scale: Unit from qu_unit element:', unit);
-			if (unit && unit.length > 0) {
-				return { unit: unit, isFallback: false };
-			}
-		}
-	}
-	
-	// Look for unit display elements near the input
-	var unitElement = inputElement.siblings('.input-group-text, .input-group-append .input-group-text');
-	console.log('HA Scale: Found siblings unit elements:', unitElement.length);
-	if (unitElement.length > 0)
-	{
-		var unit = unitElement.text().trim().toLowerCase();
-		console.log('HA Scale: Unit from siblings:', unit);
-		return { unit: unit, isFallback: false };
-	}
-	
-	// Look for unit in parent input group
-	var inputGroup = inputElement.closest('.input-group');
-	console.log('HA Scale: Found input group:', inputGroup.length > 0);
-	if (inputGroup.length > 0)
-	{
-		var unitInGroup = inputGroup.find('.input-group-text, [id$="_unit"], [class*="unit"]');
-		console.log('HA Scale: Found unit in group:', unitInGroup.length);
-		unitInGroup.each(function(i, el) {
-			console.log('HA Scale: Unit element', i, ':', $(el).text().trim());
 		});
-		
-		if (unitInGroup.length > 0)
-		{
-			var unit = '';
-			unitInGroup.each(function() {
-				var text = $(this).text().trim();
-				if (text && text.length > 0) {
-					unit = text;
-					return false; // break
+	}
+}
+
+// Debug utility for centralized logging
+class HAScaleDebug {
+	static get isEnabled() {
+		return localStorage.getItem(HAScaleConstants.CONFIG.STORAGE_KEYS.DEBUG_MODE) === 'true';
+	}
+	
+	static log(category, message, ...args) {
+		if (this.isEnabled) {
+			console.log(`HA Scale ${category}:`, message, ...args);
+		}
+	}
+	
+	static error(category, message, ...args) {
+		console.error(`HA Scale ${category}:`, message, ...args);
+	}
+}
+
+class HAScaleModel {
+	constructor() {
+		this.config = {
+			haUrl: null,
+			haToken: null,
+			scaleEntityId: null
+		};
+		this.connectionState = {
+			isConnected: false,
+			connection: null,
+			reconnectTimer: null,
+			lastError: null
+		};
+		this.scaleData = {
+			lastWeight: null,
+			lastStableWeight: null,
+			isStable: false,
+			lastUpdate: null
+		};
+		this.observers = new Set();
+		this._debounceTimers = new Map();
+	}
+
+	addObserver(observer) {
+		this.observers.add(observer);
+	}
+
+	removeObserver(observer) {
+		this.observers.delete(observer);
+	}
+
+	notifyObservers(event, data) {
+		try {
+			this.observers.forEach(observer => {
+				if (typeof observer[event] === 'function') {
+					try {
+						observer[event](data);
+					} catch (error) {
+						HAScaleDebug.error('Observer', `Error in observer ${event}:`, error);
+					}
 				}
 			});
-			
-			if (unit) {
-				console.log('HA Scale: Unit from input group:', unit);
-				return { unit: unit.toLowerCase(), isFallback: false };
-			}
+		} catch (error) {
+			HAScaleDebug.error('Model', 'Error notifying observers:', error);
 		}
 	}
-	
-	// Look for nearby span or label with unit info
-	var nearbyUnit = inputElement.parent().find('span[id$="_unit"], span[class*="unit"]');
-	console.log('HA Scale: Found nearby unit elements:', nearbyUnit.length);
-	if (nearbyUnit.length > 0)
-	{
-		var unit = nearbyUnit.text().trim().toLowerCase();
-		console.log('HA Scale: Unit from nearby elements:', unit);
-		return { unit: unit, isFallback: false };
-	}
-	
-	// Check for quantity unit selector (purchase flow)
-	var quSelector = $('#qu_id');
-	console.log('HA Scale: Found qu_id selector:', quSelector.length > 0);
-	if (quSelector.length > 0)
-	{
-		var selectedOption = quSelector.find('option:selected');
-		console.log('HA Scale: Selected option:', selectedOption.text().trim());
-		if (selectedOption.length > 0)
-		{
-			var unit = selectedOption.text().trim();
-			console.log('HA Scale: Unit from qu_id selector:', unit);
-			if (unit && unit.length > 0)
-			{
-				return { unit: unit.toLowerCase(), isFallback: false };
-			}
+
+	updateConfig(config) {
+		if (!config || typeof config !== 'object') {
+			HAScaleDebug.error('Model', 'Invalid config provided');
+			return;
 		}
+		Object.assign(this.config, config);
+		this.saveConfiguration();
+		this.notifyObservers('onConfigUpdated', this.config);
 	}
-	
-	// Check for productamountpicker unit display
-	var amountPickerUnit = $('.input-group-productamountpicker').find('.input-group-text');
-	console.log('HA Scale: Found productamountpicker unit:', amountPickerUnit.length > 0);
-	if (amountPickerUnit.length > 0)
-	{
-		var unit = amountPickerUnit.text().trim();
-		console.log('HA Scale: Unit from productamountpicker:', unit);
-		if (unit && unit.length > 0)
-		{
-			return { unit: unit.toLowerCase(), isFallback: false };
+
+	updateConnectionState(state) {
+		if (!state || typeof state !== 'object') {
+			HAScaleDebug.error('Model', 'Invalid connection state provided');
+			return;
 		}
+		Object.assign(this.connectionState, state);
+		this.notifyObservers('onConnectionStateChanged', this.connectionState);
 	}
-	
-	console.log('HA Scale: No unit found, defaulting to grams');
-	// Default assumption: grams
-	return { unit: 'g', isFallback: true };
-};
 
-Grocy.Components.HomeAssistantScale.GetExpectedUnit = function(inputElement)
-{
-	return Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(inputElement).unit;
-};
-
-Grocy.Components.HomeAssistantScale.ConvertFromGrams = function(weightInGrams, toUnit)
-{
-	console.log('HA Scale: Converting', weightInGrams, 'grams to', toUnit);
-	
-	// Normalize unit
-	toUnit = toUnit.toLowerCase();
-	
-	// Define conversion factors
-	var conversionFactors = {
-		'g': 1, 'gram': 1, 'grams': 1,
-		'kg': 1000, 'kilo': 1000, 'kilogram': 1000, 'kilograms': 1000,
-		'lb': 453.592, 'lbs': 453.592, 'pound': 453.592, 'pounds': 453.592,
-		'oz': 28.3495, 'ounce': 28.3495, 'ounces': 28.3495
-	};
-	
-	var factor = conversionFactors[toUnit];
-	if (factor === undefined) {
-		console.log('HA Scale: Unknown unit:', toUnit, 'using grams');
-		factor = 1;
-	}
-	
-	var result = weightInGrams / factor;
-	console.log('HA Scale: Converted result:', result, toUnit);
-	return result;
-};
-
-Grocy.Components.HomeAssistantScale.GetDecimalPrecision = function(targetInput)
-{
-	var maxDecimalPlaces = Grocy.UserSettings.stock_decimal_places_amounts;
-	
-	// Check if the input has a step attribute that implies decimal precision
-	var stepAttr = targetInput.attr('step');
-	if (stepAttr && stepAttr.includes('.')) {
-		var stepDecimals = stepAttr.split('.')[1].length;
-		if (stepDecimals > 0 && stepDecimals < maxDecimalPlaces) {
-			maxDecimalPlaces = stepDecimals;
-		}
-	}
-	
-	return maxDecimalPlaces;
-};
-
-Grocy.Components.HomeAssistantScale.PopulateWeightInput = function(weight)
-{
-	var targetInput = Grocy.Components.HomeAssistantScale.FindTargetInput();
-	
-	if (!targetInput)
-	{
-		console.log('Home Assistant scale integration: No eligible weight input found');
-		return;
-	}
-	
-	// Get the expected unit from UI with fallback detection
-	var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(targetInput);
-	var expectedUnit = unitInfo.unit;
-	var isFallback = unitInfo.isFallback;
-	
-	// Convert weight from grams to expected unit
-	var convertedWeight = Grocy.Components.HomeAssistantScale.ConvertFromGrams(weight, expectedUnit);
-	
-	// Get decimal precision and format the weight appropriately
-	var maxDecimalPlaces = Grocy.Components.HomeAssistantScale.GetDecimalPrecision(targetInput);
-	
-	// Round to prevent floating-point precision issues
-	var roundingFactor = Math.pow(10, maxDecimalPlaces);
-	convertedWeight = Math.round(convertedWeight * roundingFactor) / roundingFactor;
-	
-	// Format with consistent decimal handling
-	var formattedWeight = convertedWeight.toLocaleString('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: maxDecimalPlaces
-	});
-	
-	console.log('Home Assistant scale integration: Converting', weight, 'grams to', convertedWeight, expectedUnit);
-	
-	// Set the value and trigger events
-	targetInput.val(formattedWeight);
-	targetInput.trigger('input');
-	targetInput.trigger('change');
-	
-	// Mark as fulfilled and clean up state
-	targetInput.addClass('ha-scale-fulfilled');
-	targetInput.removeClass('ha-scale-waiting');
-	targetInput.removeAttr('data-ha-scale-target');
-	
-	// Update the refresh button state
-	Grocy.Components.HomeAssistantScale.UpdateRefreshButton(targetInput, true, isFallback, expectedUnit);
-	
-	// Show notification with conversion info
-	if (typeof toastr !== 'undefined')
-	{
-		var message = __t('Weight updated from scale: %s %s', formattedWeight, expectedUnit);
-		if (expectedUnit !== 'g' && expectedUnit !== 'gram' && expectedUnit !== 'grams')
-		{
-			message += ' (' + __t('converted from %s g', weight) + ')';
-		}
-		
-		toastr.success(message, '', {
-			timeOut: 3000,
-			positionClass: 'toast-bottom-right'
-		});
-	}
-};
-
-Grocy.Components.HomeAssistantScale.ClearInput = function(inputElement)
-{
-	// Clear any previously waiting inputs - only one should be waiting at a time
-	$('input[data-ha-scale-target="true"]').each(function() {
-		var prevInput = $(this);
-		if (prevInput[0] !== inputElement[0]) {
-			prevInput.removeAttr('data-ha-scale-target');
-			
-			// Only reset if it was waiting, not if it already received weight
-			if (prevInput.hasClass('ha-scale-waiting')) {
-				prevInput.removeClass('ha-scale-waiting');
-				
-				// Reset the refresh button to normal waiting state
-				var prevUnitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(prevInput);
-				Grocy.Components.HomeAssistantScale.UpdateRefreshButton(prevInput, false, prevUnitInfo.isFallback, prevUnitInfo.unit);
-			}
-			// If it was fulfilled, leave it as-is (keep the green/yellow button and value)
-		}
-	});
-	
-	// Clear the input value and reset state
-	inputElement.val('');
-	inputElement.removeClass('ha-scale-fulfilled');
-	
-	// Get unit info for the waiting state
-	var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(inputElement);
-	
-	// Update the refresh button state
-	Grocy.Components.HomeAssistantScale.UpdateRefreshButton(inputElement, false, unitInfo.isFallback, unitInfo.unit);
-	
-	// Mark this input as the active target for weight updates
-	inputElement.attr('data-ha-scale-target', 'true');
-	inputElement.addClass('ha-scale-waiting');
-	
-	// Focus the input to wait for new stable value
-	inputElement.focus();
-	
-	console.log('Home Assistant scale integration: Input cleared and ready for new weight');
-	
-	if (typeof toastr !== 'undefined')
-	{
-		toastr.info(__t('Input cleared - waiting for stable weight reading'), '', {
-			timeOut: 2000,
-			positionClass: 'toast-bottom-right'
-		});
-	}
-};
-
-Grocy.Components.HomeAssistantScale.UpdateRefreshButton = function(inputElement, isFulfilled, isFallback, detectedUnit)
-{
-	var refreshButton = inputElement.siblings('.ha-scale-refresh-btn');
-	
-	if (isFulfilled)
-	{
-		if (isFallback)
-		{
-			refreshButton.removeClass('btn-outline-secondary btn-success').addClass('btn-warning')
-				.html('<i class="fa-solid fa-refresh"></i>')
-				.attr('title', 'Clear and wait for new weight (unit not detected, using grams)');
-		}
-		else
-		{
-			refreshButton.removeClass('btn-outline-secondary btn-warning').addClass('btn-success')
-				.html('<i class="fa-solid fa-refresh"></i>')
-				.attr('title', 'Clear and wait for new weight (detected unit: ' + detectedUnit + ')');
-		}
-	}
-	else
-	{
-		var tooltipText = isFallback ? 
-			'Waiting for stable weight (unit not detected, will use grams)' : 
-			'Waiting for stable weight (detected unit: ' + detectedUnit + ')';
-		
-		refreshButton.removeClass('btn-success btn-warning').addClass('btn-outline-secondary')
-			.html('<i class="fa-solid fa-scale-balanced"></i>')
-			.attr('title', tooltipText);
-	}
-};
-
-Grocy.Components.HomeAssistantScale.LoadConfiguration = function()
-{
-	// Try to load configuration from user settings or local storage
-	var haUrl = localStorage.getItem('grocy_ha_url') || '';
-	var haToken = localStorage.getItem('grocy_ha_token') || '';
-	var scaleEntityId = localStorage.getItem('grocy_ha_scale_entity_id') || '';
-	
-	if (haUrl && haToken && scaleEntityId)
-	{
-		Grocy.Components.HomeAssistantScale.HaUrl = haUrl;
-		Grocy.Components.HomeAssistantScale.HaToken = haToken;
-		Grocy.Components.HomeAssistantScale.ScaleEntityId = scaleEntityId;
-		
-		console.log('Home Assistant scale integration: Configuration loaded');
-		return true;
-	}
-	
-	console.log('Home Assistant scale integration: No configuration found');
-	return false;
-};
-
-Grocy.Components.HomeAssistantScale.SaveConfiguration = function(haUrl, haToken, scaleEntityId)
-{
-	localStorage.setItem('grocy_ha_url', haUrl || '');
-	localStorage.setItem('grocy_ha_token', haToken || '');
-	localStorage.setItem('grocy_ha_scale_entity_id', scaleEntityId || '');
-	
-	Grocy.Components.HomeAssistantScale.HaUrl = haUrl;
-	Grocy.Components.HomeAssistantScale.HaToken = haToken;
-	Grocy.Components.HomeAssistantScale.ScaleEntityId = scaleEntityId;
-	
-	console.log('Home Assistant scale integration: Configuration saved');
-};
-
-Grocy.Components.HomeAssistantScale.AddStyles = function()
-{
-	if ($('#ha-scale-styles').length > 0) return; // Already added
-	
-	var styles = '<style id="ha-scale-styles">' +
-		'.ha-scale-refresh-btn { margin-right: 0; } ' +
-		'.ha-scale-waiting { border-color: #007bff !important; box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important; } ' +
-		'.ha-scale-fulfilled { border-color: #28a745 !important; } ' +
-		'.ha-scale-refresh-btn.btn-success { color: #fff; } ' +
-		'.ha-scale-refresh-btn.btn-warning { color: #fff; } ' +
-		'</style>';
-	
-	$('head').append(styles);
-};
-
-Grocy.Components.HomeAssistantScale.AddRefreshButtons = function()
-{
-	// Find all weight-related inputs using the helper function
-	var allInputs = $('input[type="text"], input[type="number"], input:not([type])');
-	
-	allInputs.each(function()
-	{
-		var input = $(this);
-		
-		// Skip if not a weight input, readonly/disabled, or button already exists
-		if (!Grocy.Components.HomeAssistantScale.IsWeightInput(this) || 
-			input.siblings('.ha-scale-refresh-btn').length > 0)
-		{
+	updateScaleData(data) {
+		if (!data || typeof data !== 'object') {
+			HAScaleDebug.error('Model', 'Invalid scale data provided');
 			return;
 		}
 		
-		// Get unit info for the initial tooltip
-		var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(input);
-		var tooltipText = unitInfo.isFallback ? 
-			'Waiting for stable weight (unit not detected, will use grams)' : 
-			'Waiting for stable weight (detected unit: ' + unitInfo.unit + ')';
+		Object.assign(this.scaleData, {
+			...data,
+			lastUpdate: new Date()
+		});
 		
-		// Create refresh button
-		var refreshButton = $('<button type="button" class="btn btn-sm btn-outline-secondary ha-scale-refresh-btn" title="' + tooltipText + '">' +
-			'<i class="fa-solid fa-scale-balanced"></i>' +
-			'</button>');
+		if (data.isStable && data.lastWeight !== null && !isNaN(data.lastWeight)) {
+			this._debounceNotification('stableWeight', () => {
+				this.scaleData.lastStableWeight = data.lastWeight;
+				this.notifyObservers('onStableWeightChanged', {
+					weight: data.lastWeight,
+					attributes: data.attributes || {}
+				});
+			}, HAScaleConstants.CONFIG.STABLE_WEIGHT_DEBOUNCE);
+		}
 		
-		// Add button before the input
-		input.before(refreshButton);
+		this.notifyObservers('onScaleDataUpdated', this.scaleData);
+	}
+
+	_debounceNotification(key, callback, delay) {
+		if (this._debounceTimers.has(key)) {
+			clearTimeout(this._debounceTimers.get(key));
+		}
+		const timer = setTimeout(() => {
+			callback();
+			this._debounceTimers.delete(key);
+		}, delay);
+		this._debounceTimers.set(key, timer);
+	}
+
+	loadConfiguration() {
+		try {
+			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+			this.config = {
+				haUrl: localStorage.getItem(keys.HA_URL) || null,
+				haToken: localStorage.getItem(keys.HA_TOKEN) || null,
+				scaleEntityId: localStorage.getItem(keys.SCALE_ENTITY_ID) || null
+			};
+			return this.isConfigComplete();
+		} catch (error) {
+			HAScaleDebug.error('Config', 'Error loading configuration:', error);
+			return false;
+		}
+	}
+
+	saveConfiguration() {
+		try {
+			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+			const { haUrl = '', haToken = '', scaleEntityId = '' } = this.config;
+			localStorage.setItem(keys.HA_URL, haUrl);
+			localStorage.setItem(keys.HA_TOKEN, haToken);
+			localStorage.setItem(keys.SCALE_ENTITY_ID, scaleEntityId);
+		} catch (error) {
+			HAScaleDebug.error('Config', 'Error saving configuration:', error);
+		}
+	}
+
+	isConfigComplete() {
+		return !!(this.config.haUrl && this.config.haToken && this.config.scaleEntityId);
+	}
+
+	getState() {
+		return {
+			config: { ...this.config },
+			connectionState: { ...this.connectionState },
+			scaleData: { ...this.scaleData }
+		};
+	}
+}
+
+class HAScaleButtonInputHelper {
+	static get CSS() {
+		return HAScaleConstants.CONFIG.CSS_CLASSES;
+	}
+
+	static get BUTTON_STATES() {
+		const { BUTTON_IDLE, BUTTON_SUCCESS, BUTTON_WARNING, BUTTON_WAITING } = this.CSS;
+		return `${BUTTON_IDLE} ${BUTTON_SUCCESS} ${BUTTON_WARNING} ${BUTTON_WAITING}`;
+	}
+
+	// Get input associated with a scale button
+	static getInputFromButton($button) {
+		return $button.siblings('input').first();
+	}
+
+	// Get scale button associated with an input
+	static getButtonFromInput($input) {
+		return $input.siblings(`.${this.CSS.BUTTON_BASE}`).first();
+	}
+
+	// Find all waiting inputs by looking at their buttons
+	static findWaitingInputs() {
+		return $(`.${this.CSS.BUTTON_BASE}.${this.CSS.BUTTON_WAITING}`)
+			.map((_, button) => {
+				const $input = this.getInputFromButton($(button));
+				return $input.length > 0 ? $input : null;
+			})
+			.get()
+			.filter(Boolean);
+	}
+
+	// Create a new scale button with proper classes and icon
+	static createButton() {
+		const { BUTTON_IDLE, BUTTON_BASE } = this.CSS;
+		return $(`<button type="button" class="btn btn-sm ${BUTTON_IDLE} ${BUTTON_BASE}">` +
+			'<i class="fa-solid fa-scale-balanced"></i></button>');
+	}
+
+	// Check button states - semantic interface
+	static isWaiting($button) {
+		return $button.hasClass(this.CSS.BUTTON_WAITING);
+	}
+
+	static isAutoTargeted($button) {
+		return $button.hasClass(this.CSS.AUTO_TARGETED);
+	}
+
+	static isFulfilled($button) {
+		return $button.hasClass(this.CSS.BUTTON_SUCCESS) || $button.hasClass(this.CSS.BUTTON_WARNING);
+	}
+
+	// Input state checks via button
+	static isInputWaiting($input) {
+		const $button = this.getButtonFromInput($input);
+		return $button.length > 0 && this.isWaiting($button);
+	}
+
+	static isInputAutoTargeted($input) {
+		const $button = this.getButtonFromInput($input);
+		return $button.length > 0 && this.isAutoTargeted($button);
+	}
+}
+
+class HAScaleInputStateManager {
+	constructor() {
+		this.states = {
+			IDLE: 'idle',
+			WAITING: 'waiting', 
+			FULFILLED: 'fulfilled'
+		};
 		
-		// Handle click event
-		refreshButton.on('click', function(e)
-		{
+		const css = HAScaleConstants.CONFIG.CSS_CLASSES;
+		this.cssClasses = {
+			[this.states.FULFILLED]: css.INPUT_FULFILLED,
+			[this.states.WAITING]: css.INPUT_WAITING,
+			AUTO_TARGETED: css.AUTO_TARGETED
+		};
+		
+		this.buttonConfigs = {
+			[this.states.IDLE]: {
+				classes: [css.BUTTON_IDLE],
+				icon: 'fa-scale-balanced',
+				getTooltip: (unit, isFallback) => isFallback ? 
+					'Waiting for stable weight (unit not detected, will use grams)' :
+					`Waiting for stable weight (detected unit: ${unit})`
+			},
+			[this.states.WAITING]: {
+				classes: [css.BUTTON_IDLE, css.BUTTON_WAITING],
+				icon: 'fa-scale-balanced',
+				getTooltip: (unit, isFallback) => isFallback ? 
+					'Waiting for stable weight (unit not detected, will use grams)' :
+					`Waiting for stable weight (detected unit: ${unit})`
+			},
+			[this.states.FULFILLED]: {
+				classes: (isFallback) => isFallback ? [css.BUTTON_WARNING] : [css.BUTTON_SUCCESS],
+				icon: 'fa-refresh',
+				getTooltip: (unit, isFallback) => isFallback ? 
+					'Clear and wait for new weight (unit not detected, using grams)' :
+					`Clear and wait for new weight (detected unit: ${unit})`
+			}
+		};
+	}
+
+	setState($input, state, unitInfo = null) {
+		this._clearAllStates($input);
+		this._setInputState($input, state);
+		this._setButtonState($input, state, unitInfo);
+	}
+
+	_clearAllStates($input) {
+		// Clear state classes from input, but preserve AUTO_TARGETED
+		const classesToClear = Object.entries(this.cssClasses)
+			.filter(([key]) => key !== 'AUTO_TARGETED')
+			.map(([, cls]) => cls);
+		
+		classesToClear.forEach(cls => $input.removeClass(cls));
+	}
+
+	_setInputState($input, state) {
+		if (state === this.states.WAITING) {
+			$input.addClass(this.cssClasses.WAITING);
+		} else if (state === this.states.FULFILLED) {
+			$input.addClass(this.cssClasses.FULFILLED);
+		}
+	}
+
+	_setButtonState($input, state, unitInfo) {
+		const $button = HAScaleButtonInputHelper.getButtonFromInput($input);
+		if ($button.length === 0) return;
+
+		const config = this.buttonConfigs[state];
+		if (!config) return;
+
+		// Clear all possible button classes
+		$button.removeClass(HAScaleButtonInputHelper.BUTTON_STATES);
+
+		// Apply new classes
+		const classes = typeof config.classes === 'function' ? 
+			config.classes(unitInfo?.isFallback) : config.classes;
+		$button.addClass(classes.join(' '));
+
+		// Set icon and tooltip
+		$button.html(`<i class="fa-solid ${config.icon}"></i>`);
+		if (unitInfo) {
+			$button.attr('title', config.getTooltip(unitInfo.unit, unitInfo.isFallback));
+		}
+	}
+
+	setAutoTargeted($input) {
+		const $button = HAScaleButtonInputHelper.getButtonFromInput($input);
+		if ($button.length > 0) {
+			$button.addClass(this.cssClasses.AUTO_TARGETED);
+			HAScaleDebug.log('StateManager', 'Marked as auto-targeted (permanent)');
+		}
+	}
+
+	isAutoTargeted($input) {
+		const $button = HAScaleButtonInputHelper.getButtonFromInput($input);
+		return $button.length > 0 && $button.hasClass(this.cssClasses.AUTO_TARGETED);
+	}
+
+	resetAll() {
+		const allStates = Object.values(this.cssClasses).join(', .');
+		$(`.${allStates}`).each((_, input) => {
+			this.setState($(input), this.states.IDLE);
+		});
+	}
+}
+
+class HAScaleView {
+	constructor() {
+		this.config = HAScaleConstants.CONFIG;
+		this.initialized = false;
+		this._cache = new Map();
+		this.stateManager = new HAScaleInputStateManager();
+	}
+
+	initialize() {
+		if (this.initialized) return;
+		
+		this.addStyles();
+		this.addConfigurationUI();
+		this.addRefreshButtons();
+		this.initialized = true;
+	}
+
+	updateConnectionStatus(isConnected) {
+		const $status = this._getCachedElement('#ha-connection-status');
+		if ($status.length > 0) {
+			$status.text(isConnected ? 'Connected' : 'Not connected');
+		}
+	}
+
+	_getCachedElement(selector) {
+		const cached = this._cache.get(selector);
+		if (cached && (Date.now() - cached.timestamp) < this.config.CACHE_TTL) {
+			return cached.element;
+		}
+		
+		const $element = $(selector);
+		this._cache.set(selector, {
+			element: $element,
+			timestamp: Date.now()
+		});
+		return $element;
+	}
+
+	_clearCache() {
+		this._cache.clear();
+	}
+
+	showNotification(type, message, options = {}) {
+		if (typeof toastr !== 'undefined') {
+			const defaultOptions = {
+				timeOut: 3000,
+				positionClass: 'toast-bottom-right',
+				...options
+			};
+			toastr[type](message, '', defaultOptions);
+		}
+	}
+
+	updateInputState(input, state) {
+		const $input = $(input);
+		
+		// Get unit info for button state
+		let unitInfo = null;
+		if (Grocy.Components.HomeAssistantScale.Controller) {
+			unitInfo = Grocy.Components.HomeAssistantScale.Controller.unitService.getExpectedUnitWithFallback(input);
+		}
+		
+		// Map old state names to new state manager states
+		const stateMap = {
+			'waiting': this.stateManager.states.WAITING,
+			'fulfilled': this.stateManager.states.FULFILLED,
+			'reset': this.stateManager.states.IDLE
+		};
+		
+		const newState = stateMap[state] || this.stateManager.states.IDLE;
+		this.stateManager.setState($input, newState, unitInfo);
+	}
+
+
+	resetAllInputs() {
+		this.stateManager.resetAll();
+		
+		// Clear cache after reset to ensure fresh lookups
+		this._clearCache();
+	}
+
+	addStyles() {
+		if ($('#ha-scale-styles').length > 0) return;
+		
+		const css = this.config.CSS_CLASSES;
+		const styles = `
+			<style id="ha-scale-styles">
+				.${css.BUTTON_BASE} { margin-right: 0; }
+				
+				/* Button states */
+				.${css.BUTTON_BASE}.${css.BUTTON_SUCCESS} { color: #fff; }
+				.${css.BUTTON_BASE}.${css.BUTTON_WARNING} { color: #fff; }
+				.${css.BUTTON_BASE}.${css.BUTTON_WAITING} {
+					color: #007bff !important;
+					border-color: #007bff !important;
+				}
+				.${css.BUTTON_BASE}.${css.BUTTON_WAITING} i {
+					animation: ha-scale-pulse 1.5s ease-in-out infinite;
+				}
+				
+				/* Animations */
+				@keyframes ha-scale-pulse {
+					0% { transform: scale(1); opacity: 1; }
+					50% { transform: scale(1.2); opacity: 0.7; }
+					100% { transform: scale(1); opacity: 1; }
+				}
+			</style>
+		`;
+		
+		$('head').append(styles);
+	}
+
+	addRefreshButtons() {
+		const inputSelector = 'input[type="text"], input[type="number"], input:not([type])';
+		
+		$(inputSelector)
+			.filter((_, element) => this._shouldAddButton(element))
+			.each((_, element) => this._createRefreshButton($(element)));
+	}
+
+	_shouldAddButton(element) {
+		const $input = $(element);
+		const isWeight = this.isWeightInput(element);
+		const hasButton = HAScaleButtonInputHelper.getButtonFromInput($input).length > 0;
+		
+		HAScaleDebug.log('View', `Button check for ${element.id || 'no-id'}: isWeight=${isWeight}, hasButton=${hasButton}`);
+		
+		return isWeight && !hasButton;
+	}
+
+	_createRefreshButton($input) {
+		const $button = HAScaleButtonInputHelper.createButton();
+		
+		$input.before($button);
+		
+		$button.on('click', (e) => {
 			e.preventDefault();
-			Grocy.Components.HomeAssistantScale.ClearInput(input);
+			$(document).trigger('HAScale.ClearInput', [$input]);
 		});
-	});
-};
+	}
 
-Grocy.Components.HomeAssistantScale.ResetFormInputs = function()
-{
-	// Reset all HA scale state from inputs
-	$('input.ha-scale-fulfilled, input.ha-scale-waiting, input.ha-scale-auto-targeted, input[data-ha-scale-target]').each(function()
-	{
-		var input = $(this);
-		input.removeClass('ha-scale-fulfilled ha-scale-waiting ha-scale-auto-targeted');
-		input.removeAttr('data-ha-scale-target');
+	isWeightInput(element) {
+		if (!element || !$(element).is('input')) return false;
 		
-		// Reset refresh button to default state
-		var refreshButton = input.siblings('.ha-scale-refresh-btn');
-		if (refreshButton.length > 0)
-		{
-			var unitInfo = Grocy.Components.HomeAssistantScale.GetExpectedUnitWithFallback(input);
-			Grocy.Components.HomeAssistantScale.UpdateRefreshButton(input, false, unitInfo.isFallback, unitInfo.unit);
-		}
-	});
-	
-	console.log('Home Assistant scale integration: Reset all input states');
-};
-
-Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = false;
-
-Grocy.Components.HomeAssistantScale.WrapGrocyComponents = function()
-{
-	// Disable component wrapping entirely to prevent premature resets
-	console.log('Home Assistant scale integration: Component wrapping disabled to prevent premature input resets');
-	Grocy.Components.HomeAssistantScale.ComponentWrappersInstalled = true;
-};
-
-Grocy.Components.HomeAssistantScale.IsStockOperationSuccess = function(message)
-{
-	if (!message) return false;
-	
-	var successPatterns = [
-		{terms: [__t('Added'), __t('stock')]},
-		{terms: [__t('Removed'), __t('stock')]},
-		{terms: [__t('Transferred')]},
-		{terms: [__t('Inventory saved successfully')]},
-		{terms: [__t('Marked'), __t('opened')]}
-	];
-	
-	return successPatterns.some(function(pattern) {
-		return pattern.terms.every(function(term) {
-			return message.includes(term);
-		});
-	});
-};
-
-Grocy.Components.HomeAssistantScale.SetupToastrHook = function()
-{
-	if (typeof toastr === 'undefined' || !toastr.success) return;
-	
-	var timeouts = Grocy.Components.HomeAssistantScale.CONSTANTS.TIMEOUTS;
-	var originalToastrSuccess = toastr.success;
-	
-	toastr.success = function(message, title, options) {
-		if (Grocy.Components.HomeAssistantScale.IsStockOperationSuccess(message)) {
-			console.log('Home Assistant scale integration: Detected successful stock operation, resetting HA scale inputs');
-			setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, timeouts.RESET_DELAY);
+		const $element = $(element);
+		
+		if ($element.prop('readonly') || $element.prop('disabled')) {
+			return false;
 		}
 		
-		return originalToastrSuccess.call(this, message, title, options);
-	};
-};
-
-Grocy.Components.HomeAssistantScale.SetupFormEventHandlers = function()
-{
-	var timeouts = Grocy.Components.HomeAssistantScale.CONSTANTS.TIMEOUTS;
-	
-	// Handle explicit form resets only
-	$(document).on('reset', 'form', function() {
-		setTimeout(Grocy.Components.HomeAssistantScale.ResetFormInputs, timeouts.FORM_RESET_DELAY);
-	});
-	
-	// Monitor for successful AJAX operations via toastr success messages
-	Grocy.Components.HomeAssistantScale.SetupToastrHook();
-	
-	// Wrap Grocy's own component reset methods
-	Grocy.Components.HomeAssistantScale.WrapGrocyComponents();
-	
-	// Handle page navigation/reload
-	$(window).on('beforeunload', function() {
-		Grocy.Components.HomeAssistantScale.ResetFormInputs();
-	});
-};
-
-Grocy.Components.HomeAssistantScale.InitDone = false;
-Grocy.Components.HomeAssistantScale.Init = function()
-{
-	if (Grocy.Components.HomeAssistantScale.InitDone)
-	{
-		return;
-	}
-
-	// Load configuration and connect if available
-	if (Grocy.Components.HomeAssistantScale.LoadConfiguration())
-	{
-		Grocy.Components.HomeAssistantScale.Connect();
-	}
-
-	// Add refresh buttons to weight inputs
-	Grocy.Components.HomeAssistantScale.AddRefreshButtons();
-
-	// Add configuration UI globally
-	Grocy.Components.HomeAssistantScale.AddConfigurationUI();
-	
-	// Add CSS for visual feedback
-	Grocy.Components.HomeAssistantScale.AddStyles();
-	
-	// Setup form event handlers for cleanup
-	Grocy.Components.HomeAssistantScale.SetupFormEventHandlers();
-
-	Grocy.Components.HomeAssistantScale.InitDone = true;
-};
-
-Grocy.Components.HomeAssistantScale.HandleOAuthCallback = function()
-{
-	// Extract parameters from URL
-	var urlParams = new URLSearchParams(window.location.search);
-	var code = urlParams.get('code');
-	
-	if (code)
-	{
-		console.log('Home Assistant OAuth callback received, code:', code);
-		toastr.success('Successfully connected to Home Assistant! Please configure your scale entity.');
+		// Check element attributes first (most reliable)
+		if (this._checkElementAttributes(element)) {
+			return true;
+		}
 		
-		// Store the authorization code - in a real implementation you'd exchange this for tokens
-		localStorage.setItem('grocy_ha_auth_code', code);
+		// Check data attributes
+		if (this._checkDataAttributes($element)) {
+			return true;
+		}
 		
-		// Clean up URL
-		var cleanUrl = window.location.origin + window.location.pathname;
-		window.history.replaceState({}, document.title, cleanUrl);
-		
-		// Show the configuration modal
-		$('#ha-scale-config-modal').modal('show');
+		// Check labels (less reliable but comprehensive)
+		return this._checkLabelText($element, element.id);
 	}
-	else
-	{
-		toastr.error('OAuth callback failed - no authorization code received');
-	}
-};
 
-Grocy.Components.HomeAssistantScale.AddConfigurationUI = function()
-{
-	// Add configuration item to the top bar dropdown menu (before night mode settings)
-	var nightModeItem = $('.dropdown-item:contains("Night mode")').first();
-	if (nightModeItem.length > 0)
-	{
-		var configMenuHtml = '<a class="dropdown-item" href="#" id="ha-scale-config-menu" data-toggle="modal" data-target="#ha-scale-config-modal">' +
-			'<i class="fa-solid fa-scale-balanced"></i> Home Assistant Scale' +
-			'</a>' +
-			'<div class="dropdown-divider"></div>';
+	_checkElementAttributes(element) {
+		const weightTerms = ['weight', 'amount', 'quantity'];
+		const attributes = [
+			element.id?.toLowerCase() || '',
+			element.name?.toLowerCase() || '',
+			element.className?.toLowerCase() || ''
+		];
 		
-		// Insert before the night mode section
-		nightModeItem.before(configMenuHtml);
+		return attributes.some(attr => 
+			weightTerms.some(term => attr.includes(term))
+		);
 	}
-	
-	// Add modal for configuration
-	var modalHtml = '<div class="modal fade" id="ha-scale-config-modal" tabindex="-1" role="dialog">' +
-		'<div class="modal-dialog" role="document">' +
-		'<div class="modal-content">' +
-		'<div class="modal-header">' +
-		'<h5 class="modal-title">Home Assistant Scale Configuration</h5>' +
-		'<button type="button" class="close" data-dismiss="modal">' +
-		'<span>&times;</span>' +
-		'</button>' +
-		'</div>' +
-		'<div class="modal-body">' +
-		'<div id="ha-oauth-section">' +
-		'<div class="form-group text-center">' +
-		'<a href="#" class="btn btn-primary" id="ha-oauth-connect" target="_blank">' +
-		'<i class="fa-solid fa-home"></i> Connect with Home Assistant' +
-		'</a>' +
-		'<small class="form-text text-muted mt-2">Click to securely login through Home Assistant</small>' +
-		'</div>' +
-		'<div class="form-group text-center">' +
-		'<small><a href="#" id="show-manual-token">Use manual token instead</a></small>' +
-		'</div>' +
-		'</div>' +
-		'<div id="ha-manual-section" style="display:none;">' +
-		'<div class="form-group">' +
-		'<label for="ha-url">Home Assistant URL</label>' +
-		'<input type="text" class="form-control" id="ha-url" placeholder="http://homeassistant.local:8123" value="' + (Grocy.Components.HomeAssistantScale.HaUrl || '') + '">' +
-		'</div>' +
-		'<div class="form-group">' +
-		'<label for="ha-token">Long-lived Access Token</label>' +
-		'<input type="password" class="form-control" id="ha-token" placeholder="Your HA access token" value="' + (Grocy.Components.HomeAssistantScale.HaToken || '') + '">' +
-		'</div>' +
-		'<div class="form-group text-center">' +
-		'<small><a href="#" id="show-oauth-button">Use OAuth instead</a></small>' +
-		'</div>' +
-		'</div>' +
-		'<div class="form-group">' +
-		'<label for="ha-entity-id">Scale Entity ID</label>' +
-		'<input type="text" class="form-control" id="ha-entity-id" placeholder="sensor.kitchen_scale" value="' + (Grocy.Components.HomeAssistantScale.ScaleEntityId || '') + '">' +
-		'</div>' +
-		'<div class="form-group">' +
-		'<small class="form-text text-muted">Connection status: <span id="ha-connection-status">' + 
-		(Grocy.Components.HomeAssistantScale.IsConnected ? 'Connected' : 'Not connected') + '</span></small>' +
-		'</div>' +
-		'</div>' +
-		'<div class="modal-footer">' +
-		'<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>' +
-		'<button type="button" class="btn btn-primary" id="ha-config-save">Save & Connect</button>' +
-		'</div>' +
-		'</div>' +
-		'</div>' +
-		'</div>';
-	
-	// Only add modal if not already present
-	if ($('#ha-scale-config-modal').length === 0)
-	{
+
+	_checkDataAttributes($element) {
+		const dataAttrs = $element.data();
+		if (!dataAttrs || typeof dataAttrs !== 'object') {
+			return false;
+		}
+		
+		const weightTerms = ['weight', 'amount', 'quantity'];
+		
+		return Object.values(dataAttrs).some(value => {
+			if (value == null) return false;
+			const strValue = String(value).toLowerCase();
+			return weightTerms.some(term => strValue.includes(term));
+		});
+	}
+
+	_checkLabelText($element, id) {
+		const weightTerms = ['weight', 'amount', 'quantity'];
+		let label = null;
+		
+		// Try different label finding strategies
+		if (id && id.trim()) {
+			label = $(`label[for="${id}"]`);
+		}
+		
+		if (!label || label.length === 0) {
+			label = $element.closest('label');
+			if (label.length === 0) {
+				label = $element.siblings('label');
+			}
+		}
+		
+		if (!label || label.length === 0) {
+			const container = $element.closest('.form-group, .input-group, .field');
+			if (container.length > 0) {
+				label = container.find('label').first();
+			}
+		}
+		
+		if (label && label.length > 0) {
+			const labelText = label.text().toLowerCase();
+			return weightTerms.some(term => labelText.includes(term));
+		}
+		
+		return false;
+	}
+
+	addConfigurationUI() {
+		const nightModeItem = $('.dropdown-item:contains("Night mode")').first();
+		if (nightModeItem.length > 0) {
+			const configMenuHtml = '<a class="dropdown-item" href="#" id="ha-scale-config-menu" data-toggle="modal" data-target="#ha-scale-config-modal">' +
+				'<i class="fa-solid fa-scale-balanced"></i> Home Assistant Scale' +
+				'</a>' +
+				'<div class="dropdown-divider"></div>';
+			
+			nightModeItem.before(configMenuHtml);
+		}
+		
+		this.addConfigModal();
+	}
+
+	addConfigModal() {
+		if ($('#ha-scale-config-modal').length > 0) return;
+		
+		const modalHtml = `
+			<div class="modal fade" id="ha-scale-config-modal" tabindex="-1" role="dialog">
+				<div class="modal-dialog" role="document">
+					<div class="modal-content">
+						<div class="modal-header">
+							<h5 class="modal-title">Home Assistant Scale Configuration</h5>
+							<button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+						</div>
+						<div class="modal-body">
+							<div class="form-group">
+								<label for="ha-url">Home Assistant URL</label>
+								<input type="text" class="form-control" id="ha-url" placeholder="http://homeassistant.local:8123">
+							</div>
+							<div class="form-group">
+								<label for="ha-token">Long-lived Access Token</label>
+								<input type="password" class="form-control" id="ha-token" placeholder="Your HA access token">
+							</div>
+							<div class="form-group">
+								<label for="ha-entity-id">Scale Entity ID</label>
+								<input type="text" class="form-control" id="ha-entity-id" placeholder="sensor.kitchen_scale">
+							</div>
+							<div class="form-group">
+								<small class="form-text text-muted">Connection status: <span id="ha-connection-status">Not connected</span></small>
+							</div>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+							<button type="button" class="btn btn-primary" id="ha-config-save">Save & Connect</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		`;
+		
 		$('body').append(modalHtml);
 		
-		// Set up OAuth URL
-		var currentUrl = window.location.origin + window.location.pathname;
-		var redirectUri = currentUrl + '?ha_auth=callback';
-		var clientId = window.location.origin; // Use origin as client_id
-		var oauthUrl = 'https://my.home-assistant.io/redirect/oauth?client_id=' + 
-			encodeURIComponent(clientId) + '&redirect_uri=' + encodeURIComponent(redirectUri);
-		
-		$('#ha-oauth-connect').attr('href', oauthUrl);
-		
-		// Handle manual token toggle
-		$(document).on('click', '#show-manual-token', function(e)
-		{
-			e.preventDefault();
-			$('#ha-oauth-section').hide();
-			$('#ha-manual-section').show();
+		// Load current configuration when modal is shown
+		$(document).on('show.bs.modal', '#ha-scale-config-modal', () => {
+			const controller = Grocy.Components.HomeAssistantScale.Controller;
+			if (controller) {
+				const config = controller.model.config;
+				$('#ha-url').val(config.haUrl || '');
+				$('#ha-token').val(config.haToken || '');
+				$('#ha-entity-id').val(config.scaleEntityId || '');
+			}
 		});
 		
-		// Handle OAuth button toggle
-		$(document).on('click', '#show-oauth-button', function(e)
-		{
-			e.preventDefault();
-			$('#ha-manual-section').hide();
-			$('#ha-oauth-section').show();
+		$(document).on('click', '#ha-config-save', () => {
+			const config = {
+				haUrl: $('#ha-url').val().trim(),
+				haToken: $('#ha-token').val().trim(),
+				scaleEntityId: $('#ha-entity-id').val().trim()
+			};
+			
+			if (config.haUrl && config.haToken && config.scaleEntityId) {
+				$(document).trigger('HAScale.ConfigSave', [config]);
+				$('#ha-scale-config-modal').modal('hide');
+			} else {
+				Grocy.Components.HomeAssistantScale.Controller?.view.showNotification('error', 'Please fill in all configuration fields');
+			}
 		});
-		
-		// Check for OAuth callback on page load
-		if (window.location.search.includes('ha_auth=callback'))
-		{
-			Grocy.Components.HomeAssistantScale.HandleOAuthCallback();
+	}
+}
+
+class HAScaleConnectionService {
+	constructor(model) {
+		this.model = model;
+		this.messageId = 1;
+		this.config = HAScaleConstants.CONFIG;
+		this.reconnectAttempts = 0;
+	}
+
+	connect() {
+		if (!this.model.isConfigComplete()) {
+			HAScaleDebug.log('Connection', 'Missing configuration, cannot connect');
+			return false;
+		}
+
+		if (this.model.connectionState.isConnected) {
+			return true;
+		}
+
+		// Prevent multiple simultaneous connection attempts
+		if (this.model.connectionState.connection) {
+			HAScaleDebug.log('Connection', 'Connection already in progress');
+			return false;
+		}
+
+		try {
+			const wsUrl = this._buildWebSocketUrl(this.model.config.haUrl);
+			if (!wsUrl) {
+				HAScaleDebug.error('Connection', 'Invalid URL configuration');
+				return false;
+			}
+
+			return this._createWebSocketConnection(wsUrl);
+		} catch (error) {
+			HAScaleDebug.error('Connection', 'Connection error', error);
+			this.model.updateConnectionState({ lastError: error });
+			return false;
+		}
+	}
+
+	_createWebSocketConnection(wsUrl) {
+		const ws = new WebSocket(wsUrl);
+		let authCompleted = false;
+		const connectionTimeout = setTimeout(() => {
+			if (!authCompleted) {
+				HAScaleDebug.error('Connection', 'Connection timeout');
+				ws.close();
+			}
+		}, this.config.CONNECTION_TIMEOUT);
+
+		ws.onopen = () => {
+			HAScaleDebug.log('Connection', 'WebSocket connected');
+			this.reconnectAttempts = 0; // Reset on successful connection
+		};
+
+		ws.onmessage = (event) => {
+			try {
+				const message = JSON.parse(event.data);
+				authCompleted = this.handleMessage(message, ws, authCompleted);
+				if (authCompleted) {
+					clearTimeout(connectionTimeout);
+				}
+			} catch (error) {
+				HAScaleDebug.error('Connection', 'Error parsing message', error);
+			}
+		};
+
+		ws.onclose = (event) => {
+			clearTimeout(connectionTimeout);
+			console.log('HA Scale: WebSocket disconnected', event.code, event.reason);
+			this.model.updateConnectionState({
+				isConnected: false,
+				connection: null
+			});
+			
+			// Only reconnect if it was a successful connection that dropped
+			if (authCompleted && event.code !== 1000) {
+				this.scheduleReconnect();
+			}
+		};
+
+		ws.onerror = (error) => {
+			clearTimeout(connectionTimeout);
+			console.error('HA Scale: WebSocket error', error);
+			this.model.updateConnectionState({ 
+				lastError: error,
+				connection: null
+			});
+			this.reconnectAttempts++;
+		};
+
+		this.model.updateConnectionState({ connection: ws });
+		return true;
+	}
+
+	_buildWebSocketUrl(haUrl) {
+		try {
+			// Validate and normalize URL
+			if (!haUrl || typeof haUrl !== 'string') {
+				return null;
+			}
+			
+			const url = haUrl.trim();
+			if (!url.match(/^https?:\/\//)) {
+				return null;
+			}
+			
+			return url.replace(/^http/, 'ws') + '/api/websocket';
+		} catch (error) {
+			console.error('HA Scale: Error building WebSocket URL', error);
+			return null;
+		}
+	}
+
+	handleMessage(message, ws, authCompleted) {
+		switch (message.type) {
+			case 'auth_required':
+				ws.send(JSON.stringify({
+					type: 'auth',
+					access_token: this.model.config.haToken
+				}));
+				break;
+				
+			case 'auth_ok':
+				console.log('HA Scale: Authentication successful');
+				authCompleted = true;
+				this.model.updateConnectionState({ isConnected: true });
+				
+				ws.send(JSON.stringify({
+					id: this.messageId++,
+					type: 'subscribe_events',
+					event_type: 'state_changed'
+				}));
+				break;
+				
+			case 'auth_invalid':
+				console.error('HA Scale: Authentication failed');
+				this.disconnect();
+				break;
+				
+			case 'event':
+				this.handleStateChangeEvent(message.event);
+				break;
+		}
+		return authCompleted;
+	}
+
+	handleStateChangeEvent(event) {
+		if (event.data && event.data.entity_id === this.model.config.scaleEntityId) {
+			const newState = event.data.new_state;
+			
+			console.log('HA Scale: State change event:', {
+				entity_id: event.data.entity_id,
+				state: newState?.state,
+				is_stable: newState?.attributes?.is_stable,
+				attributes: newState?.attributes
+			});
+			
+			if (newState && newState.state !== undefined && newState.attributes) {
+				const newWeight = parseFloat(newState.state);
+				const isStable = newState.attributes.is_stable === true;
+				
+				console.log(`HA Scale: Parsed weight: ${newWeight}g, stable: ${isStable}`);
+				
+				this.model.updateScaleData({
+					lastWeight: newWeight,
+					isStable: isStable,
+					attributes: newState.attributes
+				});
+			} else {
+				console.log('HA Scale: Invalid state data received');
+			}
+		}
+	}
+
+	disconnect() {
+		if (this.model.connectionState.connection) {
+			this.model.connectionState.connection.close();
 		}
 		
-		// Handle save button click
-		$(document).on('click', '#ha-config-save', function()
-		{
-			var haUrl = $('#ha-url').val().trim();
-			var haToken = $('#ha-token').val().trim();
-			var scaleEntityId = $('#ha-entity-id').val().trim();
+		if (this.model.connectionState.reconnectTimer) {
+			clearTimeout(this.model.connectionState.reconnectTimer);
+		}
+		
+		// Reset reconnection attempts on manual disconnect
+		this.reconnectAttempts = 0;
+		
+		this.model.updateConnectionState({
+			isConnected: false,
+			connection: null,
+			reconnectTimer: null
+		});
+	}
+
+	scheduleReconnect() {
+		if (this.model.connectionState.reconnectTimer) {
+			clearTimeout(this.model.connectionState.reconnectTimer);
+		}
+		
+		// Exponential backoff for reconnection delay (capped at 30 seconds)
+		const delay = Math.min(this.config.RECONNECT_DELAY * Math.pow(2, Math.min(this.reconnectAttempts, 3)), 30000);
+		console.log(`HA Scale: Scheduling reconnection in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
+		
+		const timer = setTimeout(() => {
+			this.connect();
+		}, delay);
+		
+		this.model.updateConnectionState({ reconnectTimer: timer });
+	}
+}
+
+class HAScaleInputService {
+	constructor(view) {
+		this.view = view;
+		this._inputCache = new Map();
+	}
+
+	findTargetInput() {
+		console.log('HA Scale: Finding target input...');
+		
+		const waitingInputs = HAScaleButtonInputHelper.findWaitingInputs();
+		console.log(`HA Scale: Found ${waitingInputs.length} waiting inputs`);
+		
+		if (waitingInputs.length > 0) {
+			const $input = waitingInputs[0];
+			console.log(`HA Scale: Using waiting input: ${$input.attr('id') || 'no-id'}`);
+			return $input;
+		}
+		
+		console.log('HA Scale: No eligible target input found');
+		return null;
+	}
+
+	_isValidTargetInput(element) {
+		return element && this.view.isWeightInput(element);
+	}
+
+	_prepareActiveInput($activeElement, activeElement) {
+		if ($activeElement.hasClass('ha-scale-waiting')) {
+			return $activeElement;
+		}
+		
+		// Don't target if already fulfilled
+		if ($activeElement.hasClass('ha-scale-fulfilled')) {
+			console.log('HA Scale: Active input is already fulfilled, skipping');
+			return null;
+		}
+		
+		if (!$activeElement.hasClass('ha-scale-auto-targeted')) {
+			$activeElement.addClass('ha-scale-auto-targeted');
 			
-			if (haUrl && haToken && scaleEntityId)
-			{
-				Grocy.Components.HomeAssistantScale.Disconnect();
-				Grocy.Components.HomeAssistantScale.SaveConfiguration(haUrl, haToken, scaleEntityId);
-				Grocy.Components.HomeAssistantScale.Connect();
-				
-				$('#ha-scale-config-modal').modal('hide');
-				toastr.success('Home Assistant scale configuration saved');
+			// Set up waiting state with visual feedback
+			Grocy.Components.HomeAssistantScale.Controller.view.updateInputState(activeElement, 'waiting');
+			
+			return $activeElement;
+		}
+		
+		return null;
+	}
+
+	clearInput(input) {
+		const $input = $(input);
+		HAScaleDebug.log('InputService', `Clearing input: ${input.id || 'no-id'}`);
+		
+		// Clear other waiting inputs efficiently
+		this._clearOtherWaitingInputs($input);
+		
+		// Reset the stored stable weight so the same weight can trigger again
+		const controller = Grocy.Components.HomeAssistantScale.Controller;
+		if (controller?.model) {
+			controller.model.scaleData.lastStableWeight = null;
+			HAScaleDebug.log('InputService', 'Reset stored stable weight to allow re-triggering');
+		}
+		
+		// Prepare the target input
+		$input.val('');
+		this.view.updateInputState(input[0], 'waiting');
+		$input.focus();
+		
+		HAScaleDebug.log('InputService', 'Input cleared and ready for new weight');
+	}
+
+	_clearOtherWaitingInputs($targetInput) {
+		const waitingInputs = HAScaleButtonInputHelper.findWaitingInputs();
+		
+		waitingInputs.forEach($input => {
+			if ($input[0] !== $targetInput[0]) {
+				console.log(`HA Scale: Clearing other waiting input: ${$input.attr('id') || 'no-id'}`);
+				this.view.updateInputState($input[0], 'reset');
 			}
-			else
-			{
-				toastr.error('Please fill in all configuration fields');
+		});
+	}
+}
+
+class HAScaleUnitService {
+	constructor() {
+		this.conversionFactors = Object.freeze({
+			'g': 1, 'gram': 1, 'grams': 1,
+			'kg': 1000, 'kilo': 1000, 'kilogram': 1000, 'kilograms': 1000,
+			'lb': 453.592, 'lbs': 453.592, 'pound': 453.592, 'pounds': 453.592,
+			'oz': 28.3495, 'ounce': 28.3495, 'ounces': 28.3495
+		});
+		this.config = HAScaleConstants.CONFIG;
+	}
+
+	getExpectedUnitWithFallback(inputElement) {
+		const $input = $(inputElement);
+		const inputId = $input.attr('id') || '';
+		
+		return this._detectUnit($input, inputId);
+	}
+
+
+	_detectUnit($input, inputId) {
+		// Priority 1: Check for [input_id]_qu_unit pattern (most reliable)
+		if (inputId) {
+			const $quUnit = $(`#${inputId}_qu_unit`);
+			if ($quUnit.length > 0) {
+				const unit = $quUnit.text().trim().toLowerCase();
+				if (unit) {
+					return { unit, isFallback: false };
+				}
+			}
+		}
+		
+		// Priority 2: Check siblings for unit text
+		const $unitElement = $input.siblings('.input-group-text, .input-group-append .input-group-text');
+		if ($unitElement.length > 0) {
+			const unit = this._extractUnitText($unitElement);
+			if (unit) {
+				return { unit, isFallback: false };
+			}
+		}
+		
+		// Priority 3: Check input group for unit elements
+		const $inputGroup = $input.closest('.input-group');
+		if ($inputGroup.length > 0) {
+			const $unitInGroup = $inputGroup.find('.input-group-text, [id$="_unit"], [class*="unit"]');
+			const unit = this._extractUnitText($unitInGroup);
+			if (unit) {
+				return { unit, isFallback: false };
+			}
+		}
+		
+		// Priority 4: Check quantity selector (global)
+		const $quSelector = $('#qu_id');
+		if ($quSelector.length > 0) {
+			const $selectedOption = $quSelector.find('option:selected');
+			if ($selectedOption.length > 0) {
+				const unit = $selectedOption.text().trim().toLowerCase();
+				if (unit) {
+					return { unit, isFallback: false };
+				}
+			}
+		}
+		
+		// Fallback to grams
+		return { unit: 'g', isFallback: true };
+	}
+
+	_extractUnitText($elements) {
+		if ($elements.length === 0) return null;
+		
+		for (let i = 0; i < $elements.length; i++) {
+			const text = $($elements[i]).text().trim().toLowerCase();
+			if (text && text.length > 0) {
+				return text;
+			}
+		}
+		return null;
+	}
+
+
+	convertFromGrams(weightInGrams, toUnit) {
+		const factor = this.conversionFactors[toUnit.toLowerCase()] || 1;
+		return weightInGrams / factor;
+	}
+
+	getDecimalPrecision(targetInput) {
+		let maxDecimalPlaces = Grocy.UserSettings?.stock_decimal_places_amounts || this.config.DEFAULT_DECIMAL_PLACES;
+		
+		const stepAttr = $(targetInput).attr('step');
+		if (stepAttr && stepAttr.includes('.')) {
+			const stepDecimals = stepAttr.split('.')[1].length;
+			if (stepDecimals > 0 && stepDecimals < maxDecimalPlaces) {
+				maxDecimalPlaces = stepDecimals;
+			}
+		}
+		
+		return Math.max(this.config.MIN_DECIMAL_PLACES, Math.min(maxDecimalPlaces, this.config.MAX_DECIMAL_PLACES));
+	}
+
+	formatWeight(weight, precision) {
+		const roundingFactor = Math.pow(10, precision);
+		const roundedWeight = Math.round(weight * roundingFactor) / roundingFactor;
+		
+		return roundedWeight.toLocaleString('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: precision
+		});
+	}
+}
+
+class HAScaleController {
+	constructor() {
+		this.config = HAScaleConstants.CONFIG;
+		this.model = new HAScaleModel();
+		this.view = new HAScaleView();
+		this.connectionService = new HAScaleConnectionService(this.model);
+		this.inputService = new HAScaleInputService(this.view);
+		this.unitService = new HAScaleUnitService();
+		this.eventHandlers = [];
+		this.mutationObserver = null;
+		this._hotkeyInProgress = false;
+		
+		this.setupObservers();
+		this.setupEventHandlers();
+	}
+
+	setupObservers() {
+		this.model.addObserver({
+			onConnectionStateChanged: (state) => {
+				this.view.updateConnectionStatus(state.isConnected);
+			},
+			onStableWeightChanged: (data) => {
+				if (data.weight && !isNaN(data.weight)) {
+					this.handleStableWeight(data.weight);
+				}
+			},
+			onConfigUpdated: () => {
+				this.connectionService.disconnect();
+				if (this.model.isConfigComplete()) {
+					this.connectionService.connect();
+				}
+			}
+		});
+	}
+
+	setupEventHandlers() {
+		const eventMap = {
+			'HAScale.ConfigSave': (_, config) => {
+				this.model.updateConfig(config);
+				this.view.showNotification('success', 'Configuration saved and connecting...');
+			},
+			'HAScale.ClearInput': (_, input) => {
+				this.inputService.clearInput(input);
+				this.view.showNotification('info', 'Waiting for stable weight reading', { timeOut: 2000 });
+			}
+		};
+
+		// Setup document events
+		Object.entries(eventMap).forEach(([event, handler]) => {
+			this._addEventHandler($(document), event, handler);
+		});
+		
+		// Form reset handling
+		this._addEventHandler($(document), 'reset', 'form', () => {
+			setTimeout(() => this.view.resetAllInputs(), this.config.INPUT_DEBOUNCE / 10);
+		});
+		
+		// Manual input detection with debouncing
+		this._addEventHandler($(document), 'input keydown paste', 'input', 
+			this._debounce((e) => {
+				// Skip manual input detection if hotkey is in progress
+				if (this._hotkeyInProgress) {
+					return;
+				}
+				
+				const $input = $(e.target);
+				if (HAScaleButtonInputHelper.isInputWaiting($input)) {
+					if (e.type === 'keydown' || e.type === 'paste' || $input.val().length > 0) {
+						this.view.updateInputState(e.target, 'reset');
+						console.log('HA Scale: Manual input detected, removing target status');
+					}
+				}
+			}, this.config.INPUT_DEBOUNCE)
+		);
+		
+		// Auto-target weight inputs when focused for the first time
+		this._addEventHandler($(document), 'focus', 'input', (e) => {
+			const input = e.target;
+			const $input = $(input);
+			
+			// Only auto-target if it's a weight input and not already auto-targeted
+			if (this.view.isWeightInput(input) && 
+				!HAScaleButtonInputHelper.isInputAutoTargeted($input)) {
+				
+				console.log(`HA Scale: Auto-targeting focused weight input: ${input.id || 'no-id'}`);
+				
+				// Clear other waiting inputs first
+				this.inputService._clearOtherWaitingInputs($input);
+				
+				// Reset stored stable weight to allow same weight to trigger
+				this.model.scaleData.lastStableWeight = null;
+				
+				// Set to waiting state and mark as auto-targeted
+				this.view.updateInputState(input, 'waiting');
+				this.view.stateManager.setAutoTargeted($input);
 			}
 		});
 		
-		// Update connection status periodically
-		setInterval(function()
-		{
-			$('#ha-connection-status').text(Grocy.Components.HomeAssistantScale.IsConnected ? 'Connected' : 'Not connected');
-		}, 1000);
+		// Untarget auto-targeted inputs when they lose focus
+		this._addEventHandler($(document), 'blur', 'input', (e) => {
+			const input = e.target;
+			const $input = $(input);
+			
+			// Only untarget if it's auto-targeted and still waiting (not fulfilled)
+			if (this.view.isWeightInput(input) && 
+				HAScaleButtonInputHelper.isInputAutoTargeted($input) &&
+				HAScaleButtonInputHelper.isInputWaiting($input)) {
+				
+				console.log(`HA Scale: Untargeting auto-targeted input on blur: ${input.id || 'no-id'}`);
+				
+				// Reset the input state to idle
+				this.view.updateInputState(input, 'reset');
+			}
+		});
+		
+		// Hotkey handler for scale trigger
+		this._addEventHandler($(document), 'keydown', (e) => {
+			// Check if hotkey matches (Alt+S by default)
+			if (e.key === 's' && e.altKey && !e.ctrlKey && !e.shiftKey) {
+				e.preventDefault();
+				this._handleScaleHotkey();
+			}
+		});
+		
+		// Success operation detection using MutationObserver
+		this.setupSuccessDetection();
+		
+		// Page unload cleanup
+		const unloadHandler = () => this.destroy();
+		this._addEventHandler($(window), 'beforeunload', unloadHandler);
+	}
+
+	_addEventHandler(element, event, selectorOrHandler, handler) {
+		if (typeof selectorOrHandler === 'function') {
+			// No selector provided
+			handler = selectorOrHandler;
+			element.on(event, handler);
+			this.eventHandlers.push({ element, event, handler });
+		} else {
+			// Selector provided (delegated event)
+			element.on(event, selectorOrHandler, handler);
+			this.eventHandlers.push({ element, event, selector: selectorOrHandler, handler });
+		}
+	}
+
+	_debounce(func, wait) {
+		let timeout;
+		return function executedFunction(...args) {
+			const later = () => {
+				clearTimeout(timeout);
+				func.apply(this, args);
+			};
+			clearTimeout(timeout);
+			timeout = setTimeout(later, wait);
+		};
+	}
+
+	setupSuccessDetection() {
+		if (typeof MutationObserver === 'undefined') return;
+		
+		this.mutationObserver = new MutationObserver((mutations) => {
+			for (const mutation of mutations) {
+				for (const node of mutation.addedNodes) {
+					if (node.nodeType === Node.ELEMENT_NODE) {
+						const $node = $(node);
+						if ($node.hasClass('toast-success') || $node.find('.toast-success').length > 0) {
+							const message = $node.text().trim();
+							if (this.isStockOperationSuccess(message)) {
+								console.log('HA Scale: Stock operation success detected, resetting inputs');
+								setTimeout(() => this.view.resetAllInputs(), this.config.INPUT_DEBOUNCE);
+								return; // Exit early on first match
+							}
+						}
+					}
+				}
+			}
+		});
+
+		// Start observing toast container
+		const toastContainer = document.querySelector('#toast-container') || document.body;
+		this.mutationObserver.observe(toastContainer, {
+			childList: true,
+			subtree: true
+		});
+	}
+
+	handleStableWeight(weight) {
+		HAScaleDebug.log('Controller', `Handling stable weight: ${weight}g`);
+		
+		// Validate weight
+		if (weight == null || isNaN(weight) || weight < 0) {
+			HAScaleDebug.error('Controller', 'Invalid weight value received:', weight);
+			return;
+		}
+		
+		const targetInput = this.inputService.findTargetInput();
+		
+		if (!targetInput?.length) {
+			HAScaleDebug.log('Controller', 'No eligible target input found', {
+				totalInputs: $('input').length,
+				waitingInputs: $('input.ha-scale-waiting').length,
+				focusedElement: `${document.activeElement?.tagName}#${document.activeElement?.id}`
+			});
+			return;
+		}
+		
+		HAScaleDebug.log('Controller', `Found target input: ${targetInput.attr('id') || 'no-id'}`);
+		
+		try {
+			const unitInfo = this.unitService.getExpectedUnitWithFallback(targetInput[0]);
+			const convertedWeight = this.unitService.convertFromGrams(weight, unitInfo.unit);
+			const precision = this.unitService.getDecimalPrecision(targetInput[0]);
+			const formattedWeight = this.unitService.formatWeight(convertedWeight, precision);
+			
+			HAScaleDebug.log('Controller', `Converting ${weight}g to ${convertedWeight} ${unitInfo.unit} (formatted: ${formattedWeight})`);
+			
+			// Update input
+			targetInput.val(formattedWeight);
+			targetInput.trigger('input');
+			targetInput.trigger('change');
+			
+			// Update view state
+			this.view.updateInputState(targetInput[0], 'fulfilled');
+			
+			// Show notification
+			const baseMessage = `Weight updated from scale: ${formattedWeight} ${unitInfo.unit}`;
+			const message = unitInfo.unit !== 'g' ? `${baseMessage} (converted from ${weight}g)` : baseMessage;
+			
+			this.view.showNotification('success', message);
+		} catch (error) {
+			HAScaleDebug.error('Controller', 'Error processing stable weight:', error);
+			this.view.showNotification('error', 'Error processing weight from scale');
+		}
+	}
+
+	isStockOperationSuccess(message) {
+		if (!message) return false;
+		
+		// Use a more efficient pattern matching approach
+		const successPatterns = this._getSuccessPatterns();
+		
+		return successPatterns.some(pattern => 
+			pattern.terms.every(term => message.toLowerCase().includes(term.toLowerCase()))
+		);
+	}
+
+	_getSuccessPatterns() {
+		// Cache patterns to avoid repeated function calls
+		if (!this._cachedSuccessPatterns) {
+			try {
+				this._cachedSuccessPatterns = [
+					{ terms: [__t('Added'), __t('stock')] },
+					{ terms: [__t('Removed'), __t('stock')] },
+					{ terms: [__t('Transferred')] },
+					{ terms: [__t('Inventory saved successfully')] },
+					{ terms: [__t('Marked'), __t('opened')] }
+				];
+			} catch (error) {
+				// Fallback to English terms if __t function is not available
+				this._cachedSuccessPatterns = [
+					{ terms: ['Added', 'stock'] },
+					{ terms: ['Removed', 'stock'] },
+					{ terms: ['Transferred'] },
+					{ terms: ['Inventory saved successfully'] },
+					{ terms: ['Marked', 'opened'] }
+				];
+			}
+		}
+		return this._cachedSuccessPatterns;
+	}
+
+	initialize() {
+		this.view.initialize();
+		
+		if (this.model.loadConfiguration()) {
+			this.connectionService.connect();
+			console.log('HA Scale: Initialized with saved configuration');
+		} else {
+			console.log('HA Scale: Initialized without configuration');
+		}
+	}
+
+	destroy() {
+		// Batch cleanup operations
+		const cleanupTasks = [
+			() => this.connectionService.disconnect(),
+			() => this.view.resetAllInputs(),
+			() => this.mutationObserver?.disconnect(),
+			() => this._cleanupEventHandlers(),
+			() => this.view._clearCache(),
+			() => this.model.observers.clear()
+		];
+
+		cleanupTasks.forEach(task => {
+			try {
+				task();
+			} catch (error) {
+				HAScaleDebug.error('Cleanup', 'Error during cleanup task:', error);
+			}
+		});
+
+		// Reset object references
+		this.mutationObserver = null;
+		this._cachedSuccessPatterns = null;
+		
+		console.log('HA Scale: Controller destroyed and cleaned up');
+	}
+
+	_handleScaleHotkey() {
+		// Set flag to prevent manual input detection during hotkey operation
+		this._hotkeyInProgress = true;
+		
+		// Find the currently focused element
+		const activeElement = document.activeElement;
+		const $activeElement = $(activeElement);
+		
+		// Check if focused element is a weight input
+		if (activeElement && this.view.isWeightInput(activeElement)) {
+			// If it's already waiting, clear it (toggle behavior)
+			if (HAScaleButtonInputHelper.isInputWaiting($activeElement)) {
+				console.log('HA Scale: Hotkey clearing waiting input');
+				this.view.updateInputState(activeElement, 'reset');
+				this.view.showNotification('info', 'Scale reading cancelled', { timeOut: 1500 });
+			} else {
+				// Trigger scale reading for this input
+				console.log(`HA Scale: Hotkey triggering scale for focused input: ${activeElement.id || 'no-id'}`);
+				$(document).trigger('HAScale.ClearInput', [$activeElement]);
+			}
+		} else {
+			// No weight input focused, find any available weight input
+			const $weightInputs = $('input').filter((_, input) => this.view.isWeightInput(input));
+			
+			if ($weightInputs.length > 0) {
+				const $firstInput = $weightInputs.first();
+				console.log(`HA Scale: Hotkey targeting first available weight input: ${$firstInput.attr('id') || 'no-id'}`);
+				$firstInput.focus();
+				$(document).trigger('HAScale.ClearInput', [$firstInput]);
+			} else {
+				console.log('HA Scale: No weight inputs found for hotkey');
+				this.view.showNotification('warning', 'No weight inputs found on this page', { timeOut: 2000 });
+			}
+		}
+		
+		// Clear the hotkey flag after a short delay to allow processing to complete
+		setTimeout(() => {
+			this._hotkeyInProgress = false;
+		}, this.config.INPUT_DEBOUNCE + 50);
+	}
+	
+	_cleanupEventHandlers() {
+		this.eventHandlers.forEach(({ element, event, selector, handler }) => {
+			if (selector) {
+				// Delegated event
+				element.off(event, selector, handler);
+			} else {
+				// Direct event
+				element.off(event, handler);
+			}
+		});
+		this.eventHandlers = [];
+	}
+}
+
+// ===== INITIALIZATION =====
+Grocy.Components.HomeAssistantScale = {
+	Controller: null,
+	InitDone: false,
+
+	Init() {
+		if (this.InitDone) {
+			return;
+		}
+
+		// Initialize the centralized controller
+		this.Controller = new HAScaleController();
+		this.Controller.initialize();
+
+		this.InitDone = true;
 	}
 };
 
 // Initialize the component when the page loads
-setTimeout(function()
-{
+setTimeout(() => {
 	Grocy.Components.HomeAssistantScale.Init();
-}, 100);
+}, HAScaleConstants.CONFIG.INPUT_DEBOUNCE);
 
 // Cleanup on page unload
-$(window).on('beforeunload', function()
-{
-	Grocy.Components.HomeAssistantScale.Disconnect();
+$(window).on('beforeunload', () => {
+	Grocy.Components.HomeAssistantScale.Controller?.destroy();
 });
