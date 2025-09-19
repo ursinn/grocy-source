@@ -948,8 +948,7 @@ class HAScaleInputService {
 			HAScaleDebug.log('InputService', 'Reset stored stable weight to allow re-triggering');
 		}
 		
-		// Prepare the target input
-		$input.val('');
+		// Prepare the target input for scale reading
 		this.view.updateInputState(input[0], 'waiting');
 		$input.focus();
 		
