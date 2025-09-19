@@ -507,6 +507,7 @@ class HAScaleView {
 		
 		$button.on('click', (e) => {
 			e.preventDefault();
+			e.stopPropagation();
 			$(document).trigger('HAScale.ClearInput', [$input]);
 		});
 	}
