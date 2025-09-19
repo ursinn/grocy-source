@@ -35,6 +35,31 @@ function isWeightChangeSignificant(currentWeight, expectedWeight) {
 	return Math.abs(currentWeight - expectedWeight) >= WEIGHT_PRECISION_TOLERANCE;
 }
 
+function checkWeightInconsistencyWarning(currentAmount, increaseAmount) {
+	// Don't show warning for very small current amounts (avoid division by zero and extreme percentages)
+	if (currentAmount <= WEIGHT_PRECISION_TOLERANCE) {
+		return '';
+	}
+	
+	var percentageIncrease = (increaseAmount / currentAmount) * 100;
+	
+	// Show warning if increase is more than 3% of current amount (weight inconsistency)
+	if (percentageIncrease > 2) {
+		var warningClass = percentageIncrease > 5 ? 'text-danger' : 'text-warning';
+		var warningIcon = percentageIncrease > 5 ? 'fa-exclamation-triangle' : 'fa-exclamation-circle';
+		
+		return '<br><div class="alert ' + (percentageIncrease > 10 ? 'alert-danger' : 'alert-warning') + ' mt-2 mb-0">' +
+			'<i class="fa-solid ' + warningIcon + '"></i> ' + 
+			'<strong>' + __t('Weight Inconsistency Warning') + ':</strong> ' +
+			__t('Adding %1$s (%2$s%% increase from current amount). Please verify this measurement is correct.', 
+				formatAmountWithUnit(increaseAmount),
+				Math.round(percentageIncrease * 10) / 10) +
+			'</div>';
+	}
+	
+	return '';
+}
+
 function createScenarioAlert(type, iconClass, message) {
 	var alertClass = type === 'increase' ? 'alert-success' : 'alert-info';
 	return '<div id="inventory-scenario" class="alert ' + alertClass + ' mt-2">' +
@@ -664,9 +689,11 @@ function showNoSourceOptions(context)
 {
 	$('#stock-modification-option').removeClass('d-none');
 	$('#add_remaining').prop('checked', true);
-	$('#remaining-modification-details').text(
-		__t('All %1$s will be added without a source transfer', formatAmountWithUnit(context.requiredIncrease))
-	);
+	
+	var baseText = __t('All %1$s will be added without a source transfer', formatAmountWithUnit(context.requiredIncrease));
+	var warningHtml = checkWeightInconsistencyWarning(context.currentAmount, context.requiredIncrease);
+	
+	$('#remaining-modification-details').html(baseText + warningHtml);
 }
 
 function showPartialTransferOptions(context)
@@ -696,12 +723,15 @@ function updatePartialTransferDetails(availableFromSource, remaining)
 				formatAmountWithUnit(netWeightAfterTransfer))
 		);
 	} else {
-		// add_remaining mode
-		$('#remaining-modification-details').text(
-			__t('Transfer %1$s from source and add remaining %2$s without source', 
-				formatAmountWithUnit(availableFromSource), 
-				formatAmountWithUnit(remaining))
+		// add_remaining mode - check for weight inconsistency warning
+		var currentAmount = parseFloat(CurrentStockEntry.stock_entry.amount);
+		var baseText = __t('Transfer %1$s from source and add remaining %2$s without source', 
+			formatAmountWithUnit(availableFromSource), 
+			formatAmountWithUnit(remaining)
 		);
+		var warningHtml = checkWeightInconsistencyWarning(currentAmount, remaining);
+		
+		$('#remaining-modification-details').html(baseText + warningHtml);
 	}
 }
 
