@@ -188,40 +188,53 @@ function validateGrossWeight()
 
 function validateStockSourceDestination()
 {
-	// Clear any existing validation states
+	clearValidationStates();
+	
+	if (!CurrentStockEntry) {
+		return true;
+	}
+	
+	return validateStockSource() && validateStockDestination();
+}
+
+function clearValidationStates()
+{
 	setFieldValidation('source_stock_entry', true, '');
 	setFieldValidation('destination_stock_entry', true, '');
-	
-	// Only validate if we have a current stock entry and the fields are visible
-	if (!CurrentStockEntry)
-	{
-		return;
+}
+
+function validateStockSource()
+{
+	if ($('#stock-source-group').hasClass('d-none')) {
+		return true;
 	}
 	
-	// Check if stock source is required (when stock increased)
-	if (!$('#stock-source-group').hasClass('d-none'))
-	{
-		var sourceStockEntry = $('#source_stock_entry').val();
-		if (!sourceStockEntry)
-		{
-			setFieldValidation('source_stock_entry', false, __t('Please select where this stock came from'));
-			return false;
-		}
+	var sourceStockEntry = $('#source_stock_entry').val();
+	var partialTransferMode = $('input[name="partial_transfer_mode"]:checked').val();
+	
+	if (!sourceStockEntry && !partialTransferMode) {
+		setFieldValidation('source_stock_entry', false, __t('Please select where this stock came from or choose how to handle the stock increase'));
+		return false;
 	}
 	
-	// Check if stock destination is required (when stock decreased and transfer is selected)
-	if (!$('#stock-destination-group').hasClass('d-none'))
-	{
-		var destinationType = $('input[name="destination_type"]:checked').val();
-		if (destinationType === 'transfer')
-		{
-			var destinationStockEntry = $('#destination_stock_entry').val();
-			if (!destinationStockEntry)
-			{
-				setFieldValidation('destination_stock_entry', false, __t('Please select destination stock entry'));
-				return false;
-			}
-		}
+	return true;
+}
+
+function validateStockDestination()
+{
+	if ($('#stock-destination-group').hasClass('d-none')) {
+		return true;
+	}
+	
+	var destinationType = $('input[name="destination_type"]:checked').val();
+	if (destinationType !== 'transfer') {
+		return true;
+	}
+	
+	var destinationStockEntry = $('#destination_stock_entry').val();
+	if (!destinationStockEntry) {
+		setFieldValidation('destination_stock_entry', false, __t('Please select destination stock entry'));
+		return false;
 	}
 	
 	return true;
@@ -250,11 +263,21 @@ $('input[name="destination_type"]').on('change', function()
 // Add validation triggers for stock source/destination selections
 $('#source_stock_entry').on('change', function()
 {
+	updatePartialTransferInfo();
 	validateStockSourceDestination();
 });
 
 $('#destination_stock_entry').on('change', function()
 {
+	validateStockSourceDestination();
+});
+
+$('input[name="partial_transfer_mode"]').on('change', function()
+{
+	// Handle the transfer available only mode by adjusting gross weight
+	handlePartialTransferMode();
+	// Update the details text when mode changes
+	updatePartialTransferInfo();
 	validateStockSourceDestination();
 });
 
@@ -478,6 +501,10 @@ function updateInventoryScenario(netWeight)
 		scenarioHtml = createScenarioAlert('increase', 'fa-plus-circle', 
 			__t('Stock increased by %1$s. Please specify where this stock came from.', formatAmountWithUnit(difference)));
 		$('#stock-source-group').removeClass('d-none');
+		
+		// Show the option to add without source immediately
+		updatePartialTransferInfo();
+		
 		loadAvailableStockEntries('source');
 		// Trigger validation since we now require a source
 		setTimeout(function() {
@@ -532,6 +559,9 @@ function loadAvailableStockEntries(type)
 				return entry.stock_id !== CurrentStockEntry.stock_entry.stock_id;
 			});
 			
+			// Store available entries for partial transfer calculations
+			window.AvailableStockEntries = availableEntries;
+			
 			availableEntries.forEach(function(entry) {
 				var amount = formatAmount(parseFloat(entry.amount));
 				var unit = CurrentStockEntry.product_details.quantity_unit_stock.name;
@@ -556,8 +586,164 @@ function loadAvailableStockEntries(type)
 				
 				selectElement.append('<option value="' + entry.stock_id + '">' + optionText + '</option>');
 			});
+			
+			// Check if we need to show the partial transfer option
+			updatePartialTransferInfo();
 		});
 	});
+}
+
+function updatePartialTransferInfo()
+{
+	// Reset UI state
+	hidePartialTransferUI();
+	
+	if (!isPartialTransferContextValid()) {
+		return;
+	}
+	
+	var transferContext = getTransferContext();
+	
+	if (!transferContext.hasSourceSelected) {
+		showNoSourceOptions(transferContext);
+		return;
+	}
+	
+	if (transferContext.sourceHasEnoughStock) {
+		// Source has enough stock, no special handling needed
+		return;
+	}
+	
+	showPartialTransferOptions(transferContext);
+}
+
+function isPartialTransferContextValid()
+{
+	return CurrentStockEntry && 
+		   window.AvailableStockEntries && 
+		   $('#stock-source-group').is(':visible');
+}
+
+function getTransferContext()
+{
+	var selectedSourceId = $('#source_stock_entry').val();
+	var netWeight = parseFloat($('#net_weight').val()) || 0;
+	var currentAmount = parseFloat(CurrentStockEntry.stock_entry.amount) || 0;
+	var requiredIncrease = netWeight - currentAmount;
+	
+	var sourceEntry = null;
+	var availableFromSource = 0;
+	
+	if (selectedSourceId && window.AvailableStockEntries) {
+		sourceEntry = window.AvailableStockEntries.find(function(entry) {
+			return entry.stock_id === selectedSourceId;
+		});
+		availableFromSource = sourceEntry ? parseFloat(sourceEntry.amount) : 0;
+	}
+	
+	return {
+		selectedSourceId: selectedSourceId,
+		hasSourceSelected: !!selectedSourceId,
+		sourceEntry: sourceEntry,
+		netWeight: netWeight,
+		currentAmount: currentAmount,
+		requiredIncrease: requiredIncrease,
+		availableFromSource: availableFromSource,
+		sourceHasEnoughStock: availableFromSource >= requiredIncrease,
+		remainingAmount: requiredIncrease - availableFromSource
+	};
+}
+
+function hidePartialTransferUI()
+{
+	$('#partial-transfer-info').addClass('d-none');
+	$('#stock-modification-option').addClass('d-none');
+}
+
+function showNoSourceOptions(context)
+{
+	$('#stock-modification-option').removeClass('d-none');
+	$('#add_remaining').prop('checked', true);
+	$('#remaining-modification-details').text(
+		__t('All %1$s will be added without a source transfer', formatAmountWithUnit(context.requiredIncrease))
+	);
+}
+
+function showPartialTransferOptions(context)
+{
+	$('#partial-transfer-info').removeClass('d-none');
+	$('#partial-transfer-message').text(
+		__t('Selected source only has %1$s available, but %2$s is needed', 
+			formatAmountWithUnit(context.availableFromSource), 
+			formatAmountWithUnit(context.requiredIncrease))
+	);
+	
+	$('#stock-modification-option').removeClass('d-none');
+	$('#add_remaining').prop('checked', true);
+	
+	updatePartialTransferDetails(context.availableFromSource, context.remainingAmount);
+}
+
+function updatePartialTransferDetails(availableFromSource, remaining)
+{
+	var selectedMode = $('input[name="partial_transfer_mode"]:checked').val();
+	
+	if (selectedMode === 'transfer_available_only') {
+		var netWeightAfterTransfer = parseFloat(CurrentStockEntry.stock_entry.amount) + availableFromSource;
+		$('#remaining-modification-details').text(
+			__t('Transfer only %1$s from source (final amount will be %2$s)', 
+				formatAmountWithUnit(availableFromSource),
+				formatAmountWithUnit(netWeightAfterTransfer))
+		);
+	} else {
+		// add_remaining mode
+		$('#remaining-modification-details').text(
+			__t('Transfer %1$s from source and add remaining %2$s without source', 
+				formatAmountWithUnit(availableFromSource), 
+				formatAmountWithUnit(remaining))
+		);
+	}
+}
+
+function handlePartialTransferMode()
+{
+	var selectedMode = $('input[name="partial_transfer_mode"]:checked').val();
+	
+	if (selectedMode === 'transfer_available_only') {
+		adjustGrossWeightForAvailableTransfer();
+	}
+	// For 'add_remaining' mode, no gross weight adjustment needed
+}
+
+function adjustGrossWeightForAvailableTransfer()
+{
+	if (!isPartialTransferContextValid()) {
+		return;
+	}
+	
+	var context = getTransferContext();
+	
+	if (!context.hasSourceSelected || !context.sourceEntry) {
+		return;
+	}
+	
+	var targetNetWeight = context.currentAmount + context.availableFromSource;
+	var targetGrossWeight = targetNetWeight + CurrentContainerWeight;
+	
+	// Update weights without triggering full scenario update
+	updateWeightsDirectly(targetGrossWeight);
+	
+	// Update the UI to reflect the change
+	updatePartialTransferInfo();
+}
+
+function updateWeightsDirectly(grossWeight)
+{
+	$('#gross_weight').val(formatAmount(grossWeight));
+	
+	var netWeight = grossWeight - CurrentContainerWeight;
+	if (netWeight < 0) netWeight = 0;
+	$('#net_weight').val(formatAmount(netWeight));
 }
 
 function clearForm()
@@ -567,9 +753,10 @@ function clearForm()
 	
 	// Reset radio buttons to default
 	$('#destination_consume').prop('checked', true);
+	$('input[name="partial_transfer_mode"]').prop('checked', false);
 	
 	// Hide sections
-	$('#container-details, #stock-source-group, #stock-destination-group, #destination-stock-entry').addClass('d-none');
+	$('#container-details, #stock-source-group, #stock-destination-group, #destination-stock-entry, #partial-transfer-info, #stock-modification-option').addClass('d-none');
 	$('#inventory-scenario').remove();
 	
 	// Reset state

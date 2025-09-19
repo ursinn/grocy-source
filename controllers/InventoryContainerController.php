@@ -65,25 +65,70 @@ class InventoryContainerController extends BaseController
 
 	private function handleStockIncrease($requestBody, $productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId)
 	{
-		if (empty($requestBody['source_stock_entry'])) {
-			throw new \Exception('Stock increased. Please specify where this stock came from.');
+		$sourceStockId = $requestBody['source_stock_entry'] ?? null;
+		$allowRemainingModification = !empty($requestBody['partial_transfer_mode']) && $requestBody['partial_transfer_mode'] === 'add_remaining';
+
+		// Handle case with no source selected
+		if (empty($sourceStockId)) {
+			if (!$allowRemainingModification) {
+				throw new \Exception('Stock increased. Please specify where this stock came from or select how to handle the stock increase.');
+			}
+			
+			// Add stock without source
+			return $this->handleStockAdditionWithoutSource($productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId);
 		}
 
-		$sourceStockId = $requestBody['source_stock_entry'];
+		// Handle case with source selected
 		$sourceStockEntry = $this->getStockEntry($productId, $sourceStockId);
-
 		if (!$sourceStockEntry) {
 			throw new \Exception('Source stock entry not found');
 		}
 
-		if (floatval($sourceStockEntry->amount) < $amountDifference) {
-			throw new \Exception('Source stock entry does not have enough stock for this transfer');
+		$availableFromSource = floatval($sourceStockEntry->amount);
+		
+		if ($availableFromSource >= $amountDifference) {
+			// Source has enough stock for full transfer
+			return $this->handleFullTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $transactionId);
 		}
 
+		// Partial transfer scenario
+		if (!$allowRemainingModification) {
+			throw new \Exception('Source stock entry does not have enough stock for this transfer. Select "Add remaining stock without source" to allow partial transfer.');
+		}
+
+		return $this->handlePartialTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId);
+	}
+
+	private function handleStockAdditionWithoutSource($productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId)
+	{
 		$this->getDatabase()->beginTransaction();
 
-		// Update amounts
-		$sourceStockEntry->update(['amount' => floatval($sourceStockEntry->amount) - $amountDifference]);
+		$stockEntry->update(['amount' => $netWeight]);
+
+		$this->createStockLogEntry([
+			'product_id' => $productId,
+			'amount' => $amountDifference,
+			'best_before_date' => $stockEntry->best_before_date,
+			'purchased_date' => $stockEntry->purchased_date,
+			'stock_id' => $stockId,
+			'transaction_type' => 'inventory-correction',
+			'price' => $stockEntry->price,
+			'location_id' => $stockEntry->location_id,
+			'transaction_id' => $transactionId,
+			'user_id' => GROCY_USER_ID,
+			'note' => "Container inventory: Stock added without source transfer"
+		]);
+
+		$this->getDatabase()->commitTransaction();
+	}
+
+	private function handleFullTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $transactionId)
+	{
+		$this->getDatabase()->beginTransaction();
+
+		// Update amounts using StockService for proper cleanup
+		$newSourceAmount = floatval($sourceStockEntry->amount) - $amountDifference;
+		$this->getStockService()->UpdateStockEntryAmount($sourceStockEntry, $newSourceAmount);
 		$stockEntry->update(['amount' => $netWeight]);
 
 		// Log transfers
@@ -113,6 +158,64 @@ class InventoryContainerController extends BaseController
 			'transaction_id' => $transactionId,
 			'user_id' => GROCY_USER_ID,
 			'note' => "Container inventory transfer from stock_id {$sourceStockId}"
+		]);
+
+		$this->getDatabase()->commitTransaction();
+	}
+
+	private function handlePartialTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId)
+	{
+		$remainingAmount = $amountDifference - $availableFromSource;
+
+		$this->getDatabase()->beginTransaction();
+
+		// Update amounts using StockService for proper cleanup
+		$this->getStockService()->UpdateStockEntryAmount($sourceStockEntry, 0); // Transfer all available stock
+		$stockEntry->update(['amount' => $netWeight]);
+
+		// Log transfer from source
+		$this->createStockLogEntry([
+			'product_id' => $productId,
+			'amount' => -$availableFromSource,
+			'best_before_date' => $sourceStockEntry->best_before_date,
+			'purchased_date' => $sourceStockEntry->purchased_date,
+			'stock_id' => $sourceStockId,
+			'transaction_type' => 'transfer',
+			'price' => $sourceStockEntry->price,
+			'location_id' => $sourceStockEntry->location_id,
+			'transaction_id' => $transactionId,
+			'user_id' => GROCY_USER_ID,
+			'note' => "Container inventory partial transfer to stock_id {$stockId}"
+		]);
+
+		// Log transferred amount to destination
+		$this->createStockLogEntry([
+			'product_id' => $productId,
+			'amount' => $availableFromSource,
+			'best_before_date' => $stockEntry->best_before_date,
+			'purchased_date' => $stockEntry->purchased_date,
+			'stock_id' => $stockId,
+			'transaction_type' => 'transfer',
+			'price' => $stockEntry->price,
+			'location_id' => $stockEntry->location_id,
+			'transaction_id' => $transactionId,
+			'user_id' => GROCY_USER_ID,
+			'note' => "Container inventory partial transfer from stock_id {$sourceStockId}"
+		]);
+
+		// Log remaining amount as inventory correction
+		$this->createStockLogEntry([
+			'product_id' => $productId,
+			'amount' => $remainingAmount,
+			'best_before_date' => $stockEntry->best_before_date,
+			'purchased_date' => $stockEntry->purchased_date,
+			'stock_id' => $stockId,
+			'transaction_type' => 'inventory-correction',
+			'price' => $stockEntry->price,
+			'location_id' => $stockEntry->location_id,
+			'transaction_id' => $transactionId,
+			'user_id' => GROCY_USER_ID,
+			'note' => "Container inventory: Additional stock added directly (source does not have enough available)"
 		]);
 
 		$this->getDatabase()->commitTransaction();

@@ -1833,4 +1833,18 @@ class StockService extends BaseService
 		$userfieldValues = $this->getDatabase()->userfield_values_resolved()->where('entity = :1 AND object_id = :2', 'stock', $stockId)->fetch();
 		return $userfieldValues !== null;
 	}
+
+	public function UpdateStockEntryAmount($stockEntry, $newAmount)
+	{
+		if ($newAmount == 0) {
+			// Only delete if stock entry has no userfields, otherwise set amount to 0
+			if ($this->StockEntryHasUserfields($stockEntry->stock_id)) {
+				$stockEntry->update(['amount' => 0]);
+			} else {
+				$stockEntry->delete();
+			}
+		} else {
+			$stockEntry->update(['amount' => $newAmount]);
+		}
+	}
 }

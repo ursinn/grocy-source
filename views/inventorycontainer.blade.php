@@ -110,7 +110,7 @@
 
 				<!-- Stock source/destination selection (hidden by default) -->
 				<div id="stock-source-group" class="form-group d-none">
-					<label for="source_stock_entry">{{ $__t('Stock source') }} <span class="text-danger">*</span></label>
+					<label for="source_stock_entry">{{ $__t('Stock source') }}</label>
 					<select class="form-control" id="source_stock_entry" name="source_stock_entry">
 						<option value="">{{ $__t('Select where this stock came from') }}</option>
 					</select>
@@ -118,6 +118,31 @@
 						{{ $__t('Select the stock entry that this additional stock was transferred from') }}
 					</small>
 					<div class="invalid-feedback"></div>
+					
+					<!-- Partial transfer info -->
+					<div id="partial-transfer-info" class="alert alert-warning mt-2 d-none">
+						<i class="fa-solid fa-exclamation-triangle"></i>
+						<span id="partial-transfer-message"></span>
+					</div>
+					
+					<!-- Option to allow remaining stock modification -->
+					<div id="stock-modification-option" class="mt-2 d-none">
+						<div class="custom-control custom-radio">
+							<input class="custom-control-input" type="radio" name="partial_transfer_mode" id="add_remaining" value="add_remaining">
+							<label class="custom-control-label" for="add_remaining">
+								{{ $__t('Add remaining stock without source') }}
+							</label>
+						</div>
+						<div class="custom-control custom-radio">
+							<input class="custom-control-input" type="radio" name="partial_transfer_mode" id="transfer_available_only" value="transfer_available_only">
+							<label class="custom-control-label" for="transfer_available_only">
+								{{ $__t('Only transfer what is available (adjust inventory to match)') }}
+							</label>
+						</div>
+						<small class="form-text text-muted">
+							<span id="remaining-modification-details"></span>
+						</small>
+					</div>
 				</div>
 
 				<div id="stock-destination-group" class="form-group d-none">
