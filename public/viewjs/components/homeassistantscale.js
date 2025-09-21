@@ -390,7 +390,9 @@ class HAScaleView {
 	updateConnectionStatus(isConnected) {
 		const $status = this._getCachedElement('#ha-connection-status');
 		if ($status.length > 0) {
-			$status.text(isConnected ? 'Connected' : 'Not connected');
+			$status.text(isConnected ? 'Connected' : 'Not connected')
+				.removeClass('text-success text-danger')
+				.addClass(isConnected ? 'text-success' : 'text-danger');
 		}
 	}
 
@@ -625,12 +627,30 @@ class HAScaleView {
 								<input type="text" class="form-control" id="ha-url" placeholder="http://homeassistant.local:8123">
 							</div>
 							<div class="form-group">
-								<label for="ha-token">Long-lived Access Token</label>
-								<input type="password" class="form-control" id="ha-token" placeholder="Your HA access token">
+								<label for="ha-token">Authentication</label>
+								<div class="mb-2">
+									<button type="button" class="btn btn-primary btn-block" id="ha-signin-btn">
+										<i class="fa-solid fa-sign-in-alt"></i> Sign in with Home Assistant
+									</button>
+								</div>
+								<div class="text-center mb-2">
+									<small class="text-muted">OR</small>
+								</div>
+								<div class="mb-2">
+									<button type="button" class="btn btn-outline-secondary btn-block" id="ha-manual-token-btn">
+										<i class="fa-solid fa-key"></i> Enter Long-lived Access Token Manually
+									</button>
+								</div>
+								<div id="ha-token-input" class="d-none">
+									<input type="password" class="form-control" id="ha-token" placeholder="Your HA access token">
+									<small class="form-text text-muted">
+										Enter your Home Assistant long-lived access token.
+									</small>
+								</div>
 							</div>
 							<div class="form-group">
 								<label for="ha-entity-id">Scale Entity ID</label>
-								<input type="text" class="form-control" id="ha-entity-id" placeholder="sensor.kitchen_scale">
+								<input type="text" class="form-control" id="ha-entity-id" placeholder="e.g. sensor.kitchen_scale, must have 'is_stable' attribute">
 							</div>
 							<div class="form-group">
 								<small class="form-text text-muted">Connection status: <span id="ha-connection-status">Not connected</span></small>
@@ -655,6 +675,10 @@ class HAScaleView {
 				$('#ha-url').val(config.haUrl || '');
 				$('#ha-token').val(config.haToken || '');
 				$('#ha-entity-id').val(config.scaleEntityId || '');
+				
+				// Always default to showing OAuth button
+				$('#ha-token-input').addClass('d-none');
+				$('#ha-manual-token-btn').removeClass('d-none');
 			}
 		});
 		
@@ -665,12 +689,260 @@ class HAScaleView {
 				scaleEntityId: $('#ha-entity-id').val().trim()
 			};
 			
-			if (config.haUrl && config.haToken && config.scaleEntityId) {
-				$(document).trigger('HAScale.ConfigSave', [config]);
-				$('#ha-scale-config-modal').modal('hide');
-			} else {
-				Grocy.Components.HomeAssistantScale.Controller?.view.showNotification('error', 'Please fill in all configuration fields');
+			// Validate all required fields are filled
+			if (!config.haUrl) {
+				this.showNotification('error', 'Please enter the Home Assistant URL');
+				return;
 			}
+			if (!config.haToken) {
+				this.showNotification('error', 'Please enter the access token or sign in with Home Assistant');
+				return;
+			}
+			if (!config.scaleEntityId) {
+				this.showNotification('error', 'Please enter the scale entity ID (e.g. sensor.kitchen_scale)');
+				return;
+			}
+			
+			// Validate entity exists before saving
+			this.validateEntityExists(config).then(isValid => {
+				if (isValid) {
+					$(document).trigger('HAScale.ConfigSave', [config]);
+					$('#ha-scale-config-modal').modal('hide');
+				}
+			}).catch(error => {
+				console.error('Entity validation error:', error);
+				this.showNotification('error', 'Failed to validate entity. Please check your configuration and try again.');
+			});
+		});
+		
+		// Sign in with Home Assistant OAuth flow
+		$(document).on('click', '#ha-signin-btn', () => {
+			this.initializeOAuthFlow();
+		});
+		
+		// Manual token entry toggle
+		$(document).on('click', '#ha-manual-token-btn', () => {
+			$('#ha-token-input').removeClass('d-none');
+			$('#ha-manual-token-btn').addClass('d-none');
+			$('#ha-token').focus();
+		});
+	}
+
+	initializeOAuthFlow() {
+		const haUrl = $('#ha-url').val().trim();
+		
+		if (!haUrl) {
+			this.showNotification('error', 'Please enter the Home Assistant URL first');
+			return;
+		}
+		
+		// Validate URL format
+		try {
+			const url = new URL(haUrl);
+			if (!['http:', 'https:'].includes(url.protocol)) {
+				throw new Error('Invalid protocol');
+			}
+		} catch (error) {
+			this.showNotification('error', 'Please enter a valid Home Assistant URL (e.g., http://homeassistant.local:8123)');
+			return;
+		}
+		
+		// Generate state parameter for security
+		const state = this._generateRandomState();
+		localStorage.setItem('ha_oauth_state', state);
+		localStorage.setItem('ha_oauth_url', haUrl);
+		
+		// Build authorization URL
+		const clientId = window.location.origin;
+		const redirectUri = `${window.location.origin}${window.location.pathname}#ha-oauth-callback`;
+		
+		const authUrl = new URL('/auth/authorize', haUrl);
+		authUrl.searchParams.set('client_id', clientId);
+		authUrl.searchParams.set('redirect_uri', redirectUri);
+		authUrl.searchParams.set('state', state);
+		
+		// Navigate to OAuth URL in same tab
+		window.location.href = authUrl.toString();
+	}
+	
+	_generateRandomState() {
+		const array = new Uint8Array(32);
+		crypto.getRandomValues(array);
+		return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+	}
+	
+	
+	_checkOAuthCallback() {
+		// Check URL hash for callback parameters
+		const hash = window.location.hash;
+		if (hash.includes('ha-oauth-callback')) {
+			const params = new URLSearchParams(hash.substring(hash.indexOf('?')));
+			const code = params.get('code');
+			const state = params.get('state');
+			
+			if (code && state) {
+				this._handleOAuthCallback(code, state);
+				// Clean up URL
+				window.location.hash = '';
+			}
+		}
+	}
+	
+	async _handleOAuthCallback(code, state) {
+		const storedState = localStorage.getItem('ha_oauth_state');
+		const haUrl = localStorage.getItem('ha_oauth_url');
+		
+		// Clean up stored data
+		localStorage.removeItem('ha_oauth_state');
+		localStorage.removeItem('ha_oauth_url');
+		
+		if (!storedState || state !== storedState) {
+			this.showNotification('error', 'OAuth state mismatch. Please try again.');
+			return;
+		}
+		
+		if (!haUrl) {
+			this.showNotification('error', 'OAuth flow error. Please try again.');
+			return;
+		}
+		
+		try {
+			// Exchange code for token
+			const token = await this._exchangeCodeForToken(haUrl, code);
+			
+			if (token) {
+				// Populate the token field
+				$('#ha-token').val(token);
+				
+				// Auto-save the configuration
+				const config = {
+					haUrl: haUrl,
+					haToken: token,
+					scaleEntityId: $('#ha-entity-id').val().trim()
+				};
+				
+				// Always save the URL and token
+				$(document).trigger('HAScale.ConfigSave', [config]);
+				this.showNotification('success', 'Successfully signed in with Home Assistant! Configuration saved automatically.');
+			}
+		} catch (error) {
+			console.error('OAuth token exchange error:', error);
+			this.showNotification('error', 'Failed to exchange authorization code for token. Please try again.');
+		}
+	}
+	
+	async _exchangeCodeForToken(haUrl, code) {
+		const clientId = window.location.origin;
+		const redirectUri = `${window.location.origin}${window.location.pathname}#ha-oauth-callback`;
+		
+		const tokenUrl = new URL('/auth/token', haUrl);
+		
+		const response = await fetch(tokenUrl.toString(), {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
+			body: new URLSearchParams({
+				grant_type: 'authorization_code',
+				code: code,
+				client_id: clientId,
+				redirect_uri: redirectUri
+			})
+		});
+		
+		if (!response.ok) {
+			throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`);
+		}
+		
+		const data = await response.json();
+		return data.access_token;
+	}
+	
+	async validateEntityExists(config) {
+		return new Promise((resolve, reject) => {
+			// Create a temporary WebSocket connection to validate the entity
+			const wsUrl = config.haUrl.replace(/^http/, 'ws') + '/api/websocket';
+			const ws = new WebSocket(wsUrl);
+			let authCompleted = false;
+			let messageId = 1;
+			
+			const timeout = setTimeout(() => {
+				ws.close();
+				reject(new Error('Validation timeout'));
+			}, 10000); // 10 second timeout
+			
+			ws.onopen = () => {
+				// WebSocket connected, wait for auth_required
+			};
+			
+			ws.onmessage = (event) => {
+				try {
+					const message = JSON.parse(event.data);
+					
+					switch (message.type) {
+						case 'auth_required':
+							ws.send(JSON.stringify({
+								type: 'auth',
+								access_token: config.haToken
+							}));
+							break;
+							
+						case 'auth_ok':
+							authCompleted = true;
+							// Request the specific entity state
+							ws.send(JSON.stringify({
+								id: messageId++,
+								type: 'get_states'
+							}));
+							break;
+							
+						case 'auth_invalid':
+							clearTimeout(timeout);
+							ws.close();
+							reject(new Error('Invalid authentication token'));
+							break;
+							
+						case 'result':
+							if (message.success && message.result) {
+								// Check if our entity exists in the states
+								const entity = message.result.find(state => state.entity_id === config.scaleEntityId);
+								
+								clearTimeout(timeout);
+								ws.close();
+								
+								if (!entity) {
+									resolve(false); // Entity not found
+									return;
+								}
+								
+								// Entity exists 
+								this.showNotification('success', `Entity "${config.scaleEntityId}" validated successfully!`);
+								resolve(true);
+							} else {
+								clearTimeout(timeout);
+								ws.close();
+								reject(new Error('Failed to get states from Home Assistant'));
+							}
+							break;
+					}
+				} catch (error) {
+					clearTimeout(timeout);
+					ws.close();
+					reject(error);
+				}
+			};
+			
+			ws.onerror = (error) => {
+				clearTimeout(timeout);
+				reject(new Error('WebSocket connection failed'));
+			};
+			
+			ws.onclose = (event) => {
+				clearTimeout(timeout);
+				if (!authCompleted && event.code !== 1000) {
+					reject(new Error('Connection closed before validation completed'));
+				}
+			};
 		});
 	}
 }
@@ -1115,11 +1387,17 @@ class HAScaleController {
 		const eventMap = {
 			'HAScale.ConfigSave': (_, config) => {
 				this.model.updateConfig(config);
-				this.view.showNotification('success', 'Configuration saved and connecting...');
 			},
 			'HAScale.ClearInput': (_, input) => {
-				this.inputService.clearInput(input);
-				this.view.showNotification('info', 'Waiting for stable weight reading', { timeOut: 2000 });
+				const controller = Grocy.Components.HomeAssistantScale.Controller;
+				if (!controller?.model?.isConfigComplete() || !controller?.model?.connectionState?.isConnected) {
+					$('#ha-scale-config-modal').modal('show');
+					controller?.view?.showNotification('info', 'Please configure Home Assistant connection first', { timeOut: 3000 });
+					return;
+				} else {
+					this.inputService.clearInput(input);
+					this.view.showNotification('info', 'Waiting for stable weight reading', { timeOut: 2000 });
+				}
 			}
 		};
 
@@ -1349,6 +1627,9 @@ class HAScaleController {
 
 	initialize() {
 		this.view.initialize();
+		
+		// Check for OAuth callback on initialization
+		this.view._checkOAuthCallback();
 		
 		if (this.model.loadConfiguration()) {
 			this.connectionService.connect();
