@@ -2676,12 +2676,23 @@ class HAScaleController {
 				$(document).trigger('HAScale.ClearInput', [$activeElement]);
 			}
 		} else {
-			const $weightInputs = $('input').filter((_, input) => this.view.isWeightInput(input));
+			const $weightInputs = $('input').filter((_, input) => 
+				this.view.isWeightInput(input) && $(input).is(':visible')
+			);
 			
 			if ($weightInputs.length > 0) {
-				const $firstInput = $weightInputs.first();
+				// Prioritize empty inputs first, then fall back to first input
+				const $emptyInputs = $weightInputs.filter((_, input) => !input.value || input.value.trim() === '');
+				const $firstInput = $emptyInputs.length > 0 ? $emptyInputs.first() : $weightInputs.first();
+				
+				// Clear auto-targeted state so focus handler will activate it
+				const $button = this.view.inputManager.getButtonFromInput($firstInput);
+				if ($button.length > 0) {
+					$button.removeClass(this.view.inputManager.css.AUTO_TARGETED);
+				}
+				
 				$firstInput.focus();
-				$(document).trigger('HAScale.ClearInput', [$firstInput]);
+				// Focus event handler will automatically target weight inputs for scale reading
 			} else {
 				HAScaleLogger.warn('Controller', 'No weight inputs found on page for hotkey operation');
 				HAScaleUtils.showNotification('warning', HAScaleConstants.CONFIG.MESSAGES.NO_WEIGHT_INPUTS, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_MEDIUM });
