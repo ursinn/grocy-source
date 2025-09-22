@@ -1662,10 +1662,14 @@ class HAScaleView {
 				HAScaleLogger.info('UI', `Testing connection and entity: ${scaleEntityId}`);
 				
 				// Try to connect and validate entity
-				await controller.connectionService.connect();
+				const connectionSuccess = await controller.connectionService.connect();
 				
-				HAScaleUtils.showNotification('success', 'Configuration saved and tested successfully!');
-				elements.modal.modal('hide');
+				if (connectionSuccess) {
+					HAScaleUtils.showNotification('success', 'Configuration saved and tested successfully!');
+					elements.modal.modal('hide');
+				} else {
+					HAScaleUtils.showNotification('error', 'Configuration test failed. Please check your settings.');
+				}
 			} catch (error) {
 				HAScaleLogger.error('UI', 'Configuration test failed:', error);
 				HAScaleUtils.showNotification('error', 'Configuration test failed. Please check your settings.');
@@ -1895,7 +1899,6 @@ class HAScaleConnectionService {
 			this.connection.addEventListener('ready', () => {
 				HAScaleLogger.info('Connection', 'Connected to Home Assistant');
 				this.model.updateConnectionState({ isConnected: true, connection: this.connection });
-				this._subscribeToEntityChanges();
 			});
 
 			this.connection.addEventListener('disconnected', () => {
@@ -1914,7 +1917,6 @@ class HAScaleConnectionService {
 			if (this.connection.connected) {
 				HAScaleLogger.debug('Connection', 'Connection already ready, triggering ready logic immediately');
 				this.model.updateConnectionState({ isConnected: true, connection: this.connection });
-				this._subscribeToEntityChanges();
 			}
 
 			// Set a timeout to detect if ready event never fires and connection isn't established
@@ -2052,25 +2054,6 @@ class HAScaleConnectionService {
 		}
 	}
 
-	_subscribeToEntityChanges() {
-		try {
-			if (!this.connection || !this.connection.connected) {
-				HAScaleLogger.error('Connection', 'Cannot subscribe to entities - connection not ready');
-				return;
-			}
-
-			// Subscribe to entity state changes using the library
-			this.unsubscribeEntities = window.HAWS.subscribeEntities(this.connection, (entities) => {
-				const scaleEntity = entities[this.model.config.scaleEntityId];
-				if (scaleEntity) {
-					this._handleEntityUpdate(scaleEntity);
-				}
-			});
-			HAScaleLogger.debug('Connection', 'Successfully subscribed to entity changes');
-		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error subscribing to entities', error);
-		}
-	}
 
 	_handleEntityUpdate(entity) {
 		const newWeight = parseFloat(entity.state);
@@ -2345,6 +2328,31 @@ class HAScaleController {
 		this.model.addObserver({
 			onConnectionStateChanged: (state) => {
 				this.view.updateConnectionStatus(state.isConnected);
+				if (state.isConnected && !this.unsubscribeEntities) {
+					try {
+						if (!this.connection || !this.connection.connected) {
+							HAScaleLogger.error('Connection', 'Cannot subscribe to entities - connection not ready');
+							return;
+						}
+
+						// Subscribe to entity state changes using the library
+						this.unsubscribeEntities = window.HAWS.subscribeEntities(this.connection, (entities) => {
+							const scaleEntity = entities[this.model.config.scaleEntityId];
+							if (scaleEntity) {
+								this._handleEntityUpdate(scaleEntity);
+							}
+						});
+						HAScaleLogger.debug('Connection', 'Successfully subscribed to entity changes');
+					} catch (error) {
+						HAScaleLogger.error('Connection', 'Error subscribing to entities', error);
+					}
+				}
+			},
+			onAuthStateChanged: (data) => {
+				const authState = data.hasValidAuth ? 
+					this.view.authUIManager.authStates.AUTHENTICATED : 
+					this.view.authUIManager.authStates.UNAUTHENTICATED;
+				this.view.authUIManager.updateAuthUI(authState, data.config);
 			},
 			onStableWeightChanged: (data) => {
 				if (data.weight && !isNaN(data.weight)) {
