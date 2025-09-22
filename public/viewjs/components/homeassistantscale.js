@@ -2330,16 +2330,16 @@ class HAScaleController {
 				this.view.updateConnectionStatus(state.isConnected);
 				if (state.isConnected && !this.unsubscribeEntities) {
 					try {
-						if (!this.connection || !this.connection.connected) {
+						if (!state.connection || !state.connection.connected) {
 							HAScaleLogger.error('Connection', 'Cannot subscribe to entities - connection not ready');
 							return;
 						}
 
 						// Subscribe to entity state changes using the library
-						this.unsubscribeEntities = window.HAWS.subscribeEntities(this.connection, (entities) => {
+						this.unsubscribeEntities = window.HAWS.subscribeEntities(state.connection, (entities) => {
 							const scaleEntity = entities[this.model.config.scaleEntityId];
 							if (scaleEntity) {
-								this._handleEntityUpdate(scaleEntity);
+								this.connectionService._handleEntityUpdate(scaleEntity);
 							}
 						});
 						HAScaleLogger.debug('Connection', 'Successfully subscribed to entity changes');
