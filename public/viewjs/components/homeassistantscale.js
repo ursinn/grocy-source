@@ -854,9 +854,129 @@ class HAScaleStyleManager {
 	}
 }
 
+/**
+ * OAuth Token Manager - handles OAuth token storage, expiration, and refresh logic
+ * Prevents automatic redirects to HA login page
+ */
+class HAScaleOAuthTokenManager {
+	constructor() {
+		this.constants = HAScaleConstants.CONFIG;
+	}
+
+	/**
+	 * Save OAuth tokens with proper expiration tracking
+	 */
+	saveTokens(tokens) {
+		try {
+			const keys = this.constants.STORAGE_KEYS;
+			if (tokens) {
+				// Store complete OAuth token data with proper expiration tracking
+				const tokenData = {
+					...tokens,
+					hassUrl: tokens.hassUrl || tokens.hassUrl,
+					clientId: tokens.clientId || this.constants.OAUTH.CLIENT_ID,
+					expires: tokens.expires || (tokens.expires_in ? Date.now() + (tokens.expires_in * 1000) : Date.now() + (3600 * 1000)),
+					stored_at: Date.now()
+				};
+				HAScaleStorageService.setJson(keys.OAUTH_TOKENS, tokenData);
+				HAScaleLogger.debug('OAuth', 'Tokens saved successfully with expiration tracking');
+				return true;
+			} else {
+				// Clear OAuth tokens
+				HAScaleStorageService.remove(keys.OAUTH_TOKENS);
+				HAScaleLogger.debug('OAuth', 'Tokens cleared');
+				return true;
+			}
+		} catch (error) {
+			HAScaleLogger.error('OAuth', 'Error saving tokens:', error);
+			return false;
+		}
+	}
+
+	/**
+	 * Load OAuth tokens with expiration checking
+	 */
+	loadTokens() {
+		try {
+			const keys = this.constants.STORAGE_KEYS;
+			const tokens = HAScaleStorageService.getJson(keys.OAUTH_TOKENS);
+			
+			if (tokens && tokens.access_token) {
+				// Check token expiration (5 minute buffer)
+				const now = Date.now();
+				const isExpired = tokens.expires && now > (tokens.expires - 300000);
+				
+				if (isExpired) {
+					HAScaleLogger.debug('OAuth', 'Tokens expired, marking for refresh');
+					return { ...tokens, needsRefresh: true };
+				}
+				
+				HAScaleLogger.debug('OAuth', 'Valid tokens loaded successfully');
+				return tokens;
+			}
+			
+			HAScaleLogger.debug('OAuth', 'No valid tokens found');
+			return null;
+		} catch (error) {
+			HAScaleLogger.error('OAuth', 'Error loading tokens:', error);
+			return null;
+		}
+	}
+
+	/**
+	 * Create HAWS Auth object from stored tokens with proper refresh callback
+	 * Does NOT trigger automatic redirects
+	 */
+	createAuth(haUrl) {
+		const tokens = this.loadTokens();
+		
+		if (!tokens || !tokens.access_token) {
+			throw new Error('No OAuth tokens available - user authentication required');
+		}
+		
+		// Ensure token data has required fields for Auth object
+		const completeTokens = {
+			...tokens,
+			hassUrl: tokens.hassUrl || haUrl,
+			clientId: tokens.clientId || this.constants.OAUTH.CLIENT_ID
+		};
+		
+		// Create Auth object with robust refresh callback
+		const auth = new window.HAWS.Auth(completeTokens, (updatedTokens) => {
+			if (updatedTokens) {
+				HAScaleLogger.debug('OAuth', 'Tokens refreshed by HAWS Auth');
+				this.saveTokens(updatedTokens);
+			} else {
+				// Token refresh failed - notify user to re-authenticate manually
+				HAScaleLogger.warn('OAuth', 'Token refresh failed - clearing stored tokens');
+				this.saveTokens(null);
+				HAScaleUtils.showNotification('error', 'Authentication expired. Please go to configuration and sign in again.');
+			}
+		});
+		
+		return auth;
+	}
+
+	/**
+	 * Check if we have valid tokens (doesn't guarantee they work, just that they exist and aren't obviously expired)
+	 */
+	hasValidTokens() {
+		const tokens = this.loadTokens();
+		return tokens && tokens.access_token && !tokens.needsRefresh;
+	}
+
+	/**
+	 * Clear all stored tokens
+	 */
+	clearTokens() {
+		return this.saveTokens(null);
+	}
+}
+
 class HAScaleOAuthManager {
 	constructor(authUIManager) {
 		this.authUIManager = authUIManager;
+		this.tokenManager = new HAScaleOAuthTokenManager();
 	}
 
 	initializeOAuthFlow(haUrl) {
@@ -927,16 +1047,21 @@ class HAScaleOAuthManager {
 			const tokenData = await this._exchangeCodeForToken(haUrl, sanitizedCode);
 			
 			if (tokenData && tokenData.access_token) {
-				// Update model with OAuth authentication
-				const controller = Grocy.Components.HomeAssistantScale.Controller;
-				if (controller) {
-					const currentConfig = controller.model.config;
-					controller.model.setAuthMethod(HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH, tokenData);
-					controller.model.updateConfig({
-						haUrl: haUrl,
-						scaleEntityId: currentConfig.scaleEntityId || '', // Preserve existing entity ID if any
-						authMethod: HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH
-					});
+				// Save tokens using the token manager and update model
+				if (this.tokenManager.saveTokens(tokenData)) {
+					const controller = Grocy.Components.HomeAssistantScale.Controller;
+					if (controller) {
+						const currentConfig = controller.model.config;
+						controller.model.setAuthMethod(HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH, tokenData);
+						controller.model.updateConfig({
+							haUrl: haUrl,
+							scaleEntityId: currentConfig.scaleEntityId || '', // Preserve existing entity ID if any
+							authMethod: HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH
+						});
+					}
+				} else {
+					HAScaleUtils.showNotification('error', 'Failed to save authentication tokens');
+					return;
 				}
 				
 				// Show OAuth success in the card
@@ -1648,12 +1773,12 @@ class HAScaleView {
 			let auth;
 			
 			if (config.authMethod === authMethods.OAUTH) {
-				// For OAuth, we need to use stored tokens
-				const tokens = this.connectionService._loadOAuthTokens();
-				if (!tokens || !tokens.access_token) {
+				// For OAuth, use the token manager to create auth
+				try {
+					auth = this.connectionService.oauthTokenManager.createAuth(config.haUrl);
+				} catch (error) {
 					throw new Error('OAuth tokens not available for validation');
 				}
-				auth = new window.HAWS.Auth(tokens, () => {});
 			} else if (config.authMethod === authMethods.LONG_LIVED) {
 				// Create temporary auth for validation
 				auth = window.HAWS.createLongLivedTokenAuth(config.haUrl, config.authData);
@@ -1716,6 +1841,7 @@ class HAScaleConnectionService {
 		this.connection = null;
 		this.unsubscribeEntities = null;
 		this.auth = null;
+		this.oauthTokenManager = new HAScaleOAuthTokenManager();
 	}
 
 	async connect() {
@@ -1861,26 +1987,14 @@ class HAScaleConnectionService {
 	}
 	
 	async _getOAuthAuth() {
-		// Load existing OAuth tokens without triggering automatic redirect
-		const tokens = this._loadOAuthTokens();
-		
-		if (!tokens || !tokens.access_token) {
-			// No tokens available - don't redirect automatically
-			// User needs to manually initiate OAuth flow
-			throw new Error('No OAuth tokens available - user authentication required');
+		// Use the OAuth token manager to create auth without redirects
+		try {
+			return this.oauthTokenManager.createAuth(this.model.config.haUrl);
+		} catch (error) {
+			// Token manager will handle the error notifications
+			HAScaleLogger.debug('Connection', 'OAuth token manager failed to create auth:', error.message);
+			throw error;
 		}
-		
-		// Ensure token data has required fields for Auth object
-		const completeTokens = {
-			...tokens,
-			hassUrl: tokens.hassUrl || this.model.config.haUrl,
-			clientId: tokens.clientId || window.location.origin
-		};
-		
-		// Create Auth object from complete token data
-		const auth = new window.HAWS.Auth(completeTokens, (updatedTokens) => this._saveOAuthTokens(updatedTokens));
-		
-		return auth;
 	}
 	
 	_getLongLivedAuth() {
@@ -1895,63 +2009,46 @@ class HAScaleConnectionService {
 		return window.HAWS.createLongLivedTokenAuth(this.model.config.haUrl, longLivedToken);
 	}
 
-	_saveOAuthTokens(tokens) {
-		try {
-			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
-			if (tokens) {
-				// Store complete OAuth token data including refresh token
-				HAScaleStorageService.setJson(keys.OAUTH_TOKENS, tokens);
-				HAScaleLogger.debug('Connection', 'OAuth tokens saved successfully');
-			} else {
-				// Clear OAuth tokens only
-				HAScaleStorageService.remove(keys.OAUTH_TOKENS);
-				HAScaleLogger.debug('Connection', 'OAuth tokens cleared');
-			}
-		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error saving OAuth tokens', error);
-		}
-	}
-
-	_loadOAuthTokens() {
-		try {
-			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
-			const tokens = HAScaleStorageService.getJson(keys.OAUTH_TOKENS);
-			
-			if (tokens && tokens.access_token && tokens.refresh_token) {
-				HAScaleLogger.debug('Connection', 'OAuth tokens loaded successfully');
-				return tokens;
-			}
-			
-			HAScaleLogger.debug('Connection', 'No valid OAuth tokens found');
-			return null;
-		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error loading OAuth tokens', error);
-			return null;
-		}
-	}
 
 	async _handleAuthError() {
 		try {
-			// Clear current auth instance but don't clear stored tokens yet
+			// Clear current auth and connection instances
 			this.auth = null;
+			if (this.connection) {
+				this.connection.close();
+				this.connection = null;
+			}
 			
-			// Try to refresh auth - this will use existing stored tokens
+			// Check if we still have valid stored tokens that might work
+			if (!this.oauthTokenManager.hasValidTokens() && this.model.config.authMethod === HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH) {
+				// No valid tokens available - notify user to re-authenticate
+				HAScaleLogger.warn('Connection', 'No valid authentication tokens available');
+				HAScaleUtils.showNotification('error', 'Authentication lost. Please go to configuration and sign in again.');
+				return;
+			}
+			
+			// Try to create new auth with existing tokens (HAWS will handle refresh if needed)
 			try {
 				this.auth = await this._getAuth();
 				if (this.auth) {
-					HAScaleLogger.debug('Connection', 'Auth refreshed successfully');
+					HAScaleLogger.debug('Connection', 'Auth recreated successfully, connection will retry');
 					return; // Success, let connection retry
 				}
 			} catch (authError) {
-				// Log the specific auth error but don't clear tokens
-				// Most auth "errors" are actually network/connection issues
-				HAScaleLogger.warn('Connection', 'Auth refresh attempt failed, will retry on next connection:', authError);
+				// If auth creation fails, it's likely token refresh failed
+				HAScaleLogger.warn('Connection', 'Auth recreation failed, tokens may be invalid:', authError);
+				
+				// Clear invalid tokens and notify user (only for OAuth)
+				if (this.model.config.authMethod === HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH) {
+					this.oauthTokenManager.clearTokens();
+				}
+				HAScaleUtils.showNotification('error', 'Authentication expired and refresh failed. Please go to configuration and sign in again.');
 			}
 			
-			// Don't clear tokens here - let the connection retry logic handle it
-			// Tokens will only be cleared if user manually logs out or specific invalid token errors occur
 		} catch (error) {
 			HAScaleLogger.error('Connection', 'Error in auth error handler', error);
+			// Fallback notification
+			HAScaleUtils.showNotification('error', 'Authentication error occurred. Please check configuration.');
 		}
 	}
 
