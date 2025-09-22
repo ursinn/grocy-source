@@ -782,6 +782,9 @@
 	@stack('pageScripts')
 	@stack('componentScripts')
 	
+	<!-- Home Assistant WebSocket Library -->
+	<script src="{{ $U('/packages/home-assistant-js-websocket/dist/haws.umd.js?v=', true) }}{{ $version }}"></script>
+	
 	<!-- Home Assistant Scale Integration (Global) -->
 	<script src="{{ $U('/viewjs/components/homeassistantscale.js?v=', true) }}{{ $version }}"></script>
 	

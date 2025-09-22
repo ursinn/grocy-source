@@ -239,6 +239,11 @@ gettext-translator@3.0.1:
   resolved "https://registry.yarnpkg.com/gettext-translator/-/gettext-translator-3.0.1.tgz#6e315a24f2baea56f86a215abb5be0ff2e641baa"
   integrity sha512-rqCbHfglrIL/Siinsylwc2eAbgrSPvGL5Dofo3WPoCQkxljoafDzw0n91TuTGmaYPkrp8S1fIDxOmX5fkpsNeQ==
 
+home-assistant-js-websocket@^9.5.0:
+  version "9.5.0"
+  resolved "https://registry.yarnpkg.com/home-assistant-js-websocket/-/home-assistant-js-websocket-9.5.0.tgz#ae4f6c449d08955f5b66c85ba28ed30002d5a583"
+  integrity sha512-gCBX0ulIPW3o5EhYxyNKgztBwNIs7u4hypZ+rcWir65wjLKL3b5uDx1jzU7RceyuANxvVKwBVLNujBeFohjnUw==
+
 jquery-serializejson@^2.9.0:
   version "2.9.0"
   resolved "https://registry.yarnpkg.com/jquery-serializejson/-/jquery-serializejson-2.9.0.tgz#03e3764e3a4b42c1c5aae9f93d7f19320c5f35a6"
