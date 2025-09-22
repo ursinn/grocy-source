@@ -1,12 +1,15 @@
 class HAScaleConstants {
 	static get CONFIG() {
 		return Object.freeze({
-			DEBOUNCE_DELAY: 300,
 			CACHE_TTL: 30000,
 			STABLE_WEIGHT_DEBOUNCE: 100,
 			RECONNECT_DELAY: 5000,
 			CONNECTION_TIMEOUT: 10000,
 			INPUT_DEBOUNCE: 100,
+			FORM_RESET_DELAY: 10,
+			SUCCESS_RESET_DELAY: 100,
+			HOTKEY_CLEANUP_DELAY: 150,
+			INIT_DELAY: 100,
 			
 			DEFAULT_DECIMAL_PLACES: 4,
 			MAX_DECIMAL_PLACES: 10,
@@ -16,11 +19,17 @@ class HAScaleConstants {
 			
 			STORAGE_KEYS: {
 				HA_URL: 'url',
-				HA_TOKEN: 'token', 
 				SCALE_ENTITY_ID: 'entity_id',
 				DEBUG_MODE: 'debug',
 				OAUTH_STATE: 'oauth_state',
-				AUTH_TOKENS: 'auth_tokens'
+				OAUTH_TOKENS: 'oauth_tokens',
+				LONG_LIVED_TOKEN: 'long_lived_token',
+				AUTH_METHOD: 'auth_method'
+			},
+			
+			AUTH_METHODS: {
+				OAUTH: 'oauth',
+				LONG_LIVED: 'long_lived'
 			},
 			
 			TIMEOUTS: {
@@ -59,6 +68,38 @@ class HAScaleConstants {
 			HOTKEYS: {
 				TRIGGER_SCALE: 'Alt+S'
 			},
+
+			RESET_ACTIONS: {
+				SUCCESS_DETECTION: 'success-detection',
+				FORM_RESET: 'form-reset'
+			},
+
+			VALIDATION: {
+				PORT_MIN: 1,
+				PORT_MAX: 65535,
+				TOKEN_MIN_LENGTH: 8,
+				TOKEN_MAX_LENGTH: 500,
+				ENTITY_MAX_LENGTH: 100
+			},
+
+			ANIMATION: {
+				PULSE_DURATION: '1.5s',
+				SCALE_NORMAL: 1,
+				SCALE_ENLARGED: 1.2,
+				OPACITY_NORMAL: 1,
+				OPACITY_DIMMED: 0.7
+			},
+
+			HTTP_STATUS: {
+				SERVER_ERROR_MIN: 500,
+				SERVER_ERROR_MAX: 600
+			},
+
+			LOGGING: {
+				TIMESTAMP_START: 11,
+				TIMESTAMP_END: 23,
+				LEVEL_NAME_PADDING: 7
+			},
 			
 			CSS_CLASSES: {
 				AUTO_TARGETED: 'ha-scale-auto-targeted',
@@ -68,7 +109,9 @@ class HAScaleConstants {
 				BUTTON_WARNING: 'btn-warning',
 				BUTTON_IDLE: 'btn-outline-secondary',
 				INPUT_FULFILLED: 'ha-scale-fulfilled',
-				INPUT_WAITING: 'ha-scale-waiting'
+				INPUT_WAITING: 'ha-scale-waiting',
+				BOOTSTRAP_HIDDEN: 'd-none',
+				TOAST_SUCCESS: 'toast-success'
 			},
 
 			MESSAGES: {
@@ -97,7 +140,15 @@ class HAScaleConstants {
 				ENTITY_RESERVED_DOMAIN: 'Entity ID uses a reserved domain. Please ensure this is a sensor entity.',
 				ENTITY_NOT_FOUND: 'Entity "{0}" not found in Home Assistant',
 				ENTITY_MISSING_ATTRIBUTE: 'Entity "{0}" found but missing \'is_stable\' attribute. Scale integration may not work correctly.',
-				ENTITY_VALIDATED: 'Entity "{0}" validated successfully!'
+				ENTITY_VALIDATED: 'Entity "{0}" validated successfully!',
+				CONTROLLER_NOT_AVAILABLE: 'Controller not available',
+				HA_URL_REQUIRED_FIRST: 'Please enter Home Assistant URL first',
+				AUTH_REQUIRED_FIRST: 'Please complete authentication first',
+				URL_AND_ENTITY_REQUIRED: 'Please fill in Home Assistant URL and Scale Entity ID',
+				CONFIG_SAVED_SUCCESS: 'Configuration saved and tested successfully!',
+				CONFIG_TEST_FAILED: 'Configuration test failed. Please check your settings.',
+				TOKEN_VALIDATED_SUCCESS: 'Long-lived token validated successfully!',
+				TOKEN_VALIDATION_FAILED: 'Token validation failed. Please check your token and URL.'
 			}
 		});
 	}
@@ -176,26 +227,32 @@ class HAScaleLogger {
 	};
 
 	static _throttleState = new Map();
+	static _currentLevel = this.LOG_LEVELS.INFO;
 
 	static get currentLevel() {
-		const debugEnabled = BoolVal(HAScaleStorageService.get(HAScaleConstants.CONFIG.STORAGE_KEYS.DEBUG_MODE));
-		return debugEnabled ? this.LOG_LEVELS.DEBUG : this.LOG_LEVELS.INFO;
+		return this._currentLevel;
 	}
 	
-	static enable() {
-		HAScaleStorageService.set(HAScaleConstants.CONFIG.STORAGE_KEYS.DEBUG_MODE, 'true');
+	static setLevel(level) {
+		if (level >= this.LOG_LEVELS.ERROR && level <= this.LOG_LEVELS.DEBUG) {
+			this._currentLevel = level;
+			HAScaleStorageService.set('log_level', level.toString());
+		}
 	}
 	
-	static disable() {
-		HAScaleStorageService.set(HAScaleConstants.CONFIG.STORAGE_KEYS.DEBUG_MODE, 'false');
+	static loadLevel() {
+		const storedLevel = HAScaleStorageService.get('log_level');
+		if (storedLevel) {
+			this._currentLevel = parseInt(storedLevel);
+		}
 	}
 	
 	static _log(level, category, message, ...args) {
 		if (level > this.currentLevel) return;
 		
-		const timestamp = new Date().toISOString().substring(11, 23);
+		const timestamp = new Date().toISOString().substring(HAScaleConstants.CONFIG.LOGGING.TIMESTAMP_START, HAScaleConstants.CONFIG.LOGGING.TIMESTAMP_END);
 		const levelName = this.LEVEL_NAMES[level];
-		const levelPart = `[${levelName}]`.padEnd(7);
+		const levelPart = `[${levelName}]`.padEnd(HAScaleConstants.CONFIG.LOGGING.LEVEL_NAME_PADDING);
 		const prefix = `[${timestamp}] ${levelPart} HA Scale ${category}:`;
 		
 		switch (level) {
@@ -289,7 +346,7 @@ class HAScaleUtils {
 				if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.URL_INVALID);
 				return false;
 			}
-			if (urlObj.port && (parseInt(urlObj.port) < 1 || parseInt(urlObj.port) > 65535)) {
+			if (urlObj.port && (parseInt(urlObj.port) < HAScaleConstants.CONFIG.VALIDATION.PORT_MIN || parseInt(urlObj.port) > HAScaleConstants.CONFIG.VALIDATION.PORT_MAX)) {
 				if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.URL_INVALID);
 				return false;
 			}
@@ -301,11 +358,11 @@ class HAScaleUtils {
 	}
 
 	static validateToken(token, showNotification) {
-		if (token.length < 8) {
+		if (token.length < HAScaleConstants.CONFIG.VALIDATION.TOKEN_MIN_LENGTH) {
 			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.TOKEN_TOO_SHORT);
 			return false;
 		}
-		if (token.length > 500) {
+		if (token.length > HAScaleConstants.CONFIG.VALIDATION.TOKEN_MAX_LENGTH) {
 			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.TOKEN_TOO_LONG);
 			return false;
 		}
@@ -321,7 +378,7 @@ class HAScaleUtils {
 			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.ENTITY_INVALID_FORMAT);
 			return false;
 		}
-		if (entityId.length > 100) {
+		if (entityId.length > HAScaleConstants.CONFIG.VALIDATION.ENTITY_MAX_LENGTH) {
 			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.ENTITY_TOO_LONG);
 			return false;
 		}
@@ -332,32 +389,6 @@ class HAScaleUtils {
 		return true;
 	}
 
-	static validateConfig(elements, showNotification) {
-		const config = {
-			haUrl: this.sanitizeUrl(elements.urlInput.val()),
-			haToken: this.sanitizeToken(elements.tokenField.val()),
-			scaleEntityId: this.sanitizeEntityId(elements.entityInput.val())
-		};
-
-		if (!config.haUrl) {
-			showNotification('error', HAScaleConstants.CONFIG.MESSAGES.URL_REQUIRED);
-			return null;
-		}
-		if (!config.haToken) {
-			showNotification('error', HAScaleConstants.CONFIG.MESSAGES.TOKEN_REQUIRED);
-			return null;
-		}
-		if (!config.scaleEntityId) {
-			showNotification('error', HAScaleConstants.CONFIG.MESSAGES.ENTITY_REQUIRED);
-			return null;
-		}
-
-		if (!this.validateUrl(config.haUrl, showNotification)) return null;
-		if (!this.validateToken(config.haToken, showNotification)) return null;
-		if (!this.validateEntityId(config.scaleEntityId, showNotification)) return null;
-
-		return config;
-	}
 
 	static debounce(func, wait) {
 		return Delay(func, wait);
@@ -379,8 +410,8 @@ class HAScaleModel {
 	constructor() {
 		this.config = {
 			haUrl: null,
-			haToken: null,
-			scaleEntityId: null
+			scaleEntityId: null,
+			authMethod: null
 		};
 		this.connectionState = {
 			isConnected: false,
@@ -481,8 +512,8 @@ class HAScaleModel {
 			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
 			this.config = {
 				haUrl: HAScaleStorageService.get(keys.HA_URL) || null,
-				haToken: HAScaleStorageService.get(keys.HA_TOKEN) || null,
-				scaleEntityId: HAScaleStorageService.get(keys.SCALE_ENTITY_ID) || null
+				scaleEntityId: HAScaleStorageService.get(keys.SCALE_ENTITY_ID) || null,
+				authMethod: HAScaleStorageService.get(keys.AUTH_METHOD) || null
 			};
 			return this.isConfigComplete();
 		} catch (error) {
@@ -494,24 +525,64 @@ class HAScaleModel {
 	saveConfiguration() {
 		try {
 			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
-			const { haUrl = '', haToken = '', scaleEntityId = '' } = this.config;
+			const { haUrl = '', scaleEntityId = '', authMethod = null } = this.config;
 			
 			const sanitizedConfig = {
 				haUrl: HAScaleUtils.sanitizeUrl(haUrl),
-				haToken: HAScaleUtils.sanitizeToken(haToken),
-				scaleEntityId: HAScaleUtils.sanitizeEntityId(scaleEntityId)
+				scaleEntityId: HAScaleUtils.sanitizeEntityId(scaleEntityId),
+				authMethod: authMethod
 			};
 			
 			HAScaleStorageService.set(keys.HA_URL, sanitizedConfig.haUrl);
-			HAScaleStorageService.set(keys.HA_TOKEN, sanitizedConfig.haToken);
 			HAScaleStorageService.set(keys.SCALE_ENTITY_ID, sanitizedConfig.scaleEntityId);
+			HAScaleStorageService.set(keys.AUTH_METHOD, sanitizedConfig.authMethod);
 		} catch (error) {
 			HAScaleLogger.error('Config', 'Error saving configuration:', error);
 		}
 	}
 
 	isConfigComplete() {
-		return !!(this.config.haUrl && this.config.haToken && this.config.scaleEntityId);
+		return !!(this.config.haUrl && this.config.scaleEntityId && this.config.authMethod && this.hasValidAuth());
+	}
+	
+	hasValidAuth() {
+		const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+		const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
+		
+		if (this.config.authMethod === authMethods.OAUTH) {
+			const oauthTokens = HAScaleStorageService.getJson(keys.OAUTH_TOKENS);
+			return !!(oauthTokens && oauthTokens.access_token);
+		} else if (this.config.authMethod === authMethods.LONG_LIVED) {
+			const longLivedToken = HAScaleStorageService.get(keys.LONG_LIVED_TOKEN);
+			return !!(longLivedToken && longLivedToken.length > 0);
+		}
+		
+		return false;
+	}
+	
+	setAuthMethod(method, authData) {
+		const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+		const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
+		
+		this.clearAllAuth();
+		
+		this.config.authMethod = method;
+		
+		if (method === authMethods.OAUTH) {
+			HAScaleStorageService.setJson(keys.OAUTH_TOKENS, authData);
+		} else if (method === authMethods.LONG_LIVED) {
+			HAScaleStorageService.set(keys.LONG_LIVED_TOKEN, authData);
+		}
+		
+		this.saveConfiguration();
+	}
+	
+	clearAllAuth() {
+		const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+		HAScaleStorageService.remove(keys.OAUTH_TOKENS);
+		HAScaleStorageService.remove(keys.LONG_LIVED_TOKEN);
+		HAScaleStorageService.remove(keys.AUTH_METHOD);
+		this.config.authMethod = null;
 	}
 
 	getState() {
@@ -667,51 +738,65 @@ class HAScaleAuthUIManager {
 		return {
 			modal: $container.closest('.modal'),
 			authStatus: $container.find('.auth-status'),
+			authMethodDisplay: $container.find('.auth-method-display'),
+			authMethodSelection: $container.find('.auth-method-selection'),
+			oauthCard: $container.find('.oauth-card'),
+			longLivedCard: $container.find('.long-lived-card'),
+			oauthAuthStatus: $container.find('.oauth-auth-status'),
+			longLivedAuthStatus: $container.find('.long-lived-auth-status'),
+			oauthSigninBtn: $container.find('.oauth-signin-btn'),
+			longLivedBtn: $container.find('.long-lived-btn'),
+			tokenValidateBtn: $container.find('.token-validate-btn'),
 			tokenInput: $container.find('.token-input'),
-			signInBtn: $container.find('.signin-btn'),
-			manualTokenBtn: $container.find('.manual-token-btn'),
-			orText: $container.find('.or-text'),
 			urlInput: $container.find('.url-input'),
 			tokenField: $container.find('.token-field'),
 			entityInput: $container.find('.entity-input'),
 			connectionStatus: $container.find('.connection-status'),
 			configSave: $container.find('.config-save'),
 			logoutBtn: $container.find('.logout-btn'),
-			debugToggle: $container.find('.debug-toggle')
+			logLevelSelect: $container.find('.log-level-select')
 		};
 	}
 
 	updateAuthUI(state, config = {}) {
 		const elements = this._getModalElements();
+		const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
 
 		elements.urlInput.val(config.haUrl || '');
-		elements.tokenField.val(config.haToken || '');
 		elements.entityInput.val(config.scaleEntityId || '');
-		elements.debugToggle.prop('checked', HAScaleLogger.currentLevel >= HAScaleLogger.LOG_LEVELS.DEBUG);
+		elements.logLevelSelect.val(HAScaleLogger.currentLevel.toString());
+
+		elements.oauthAuthStatus.addClass('d-none');
+		elements.longLivedAuthStatus.addClass('d-none');
+		elements.tokenInput.addClass('d-none');
 
 		switch (state) {
 			case this.authStates.AUTHENTICATED:
 				elements.authStatus.removeClass('d-none');
-				elements.tokenInput.addClass('d-none');
-				elements.signInBtn.addClass('d-none');
-				elements.manualTokenBtn.addClass('d-none');
-				elements.orText.addClass('d-none');
+				elements.authMethodSelection.removeClass('d-none');
+				
+				if (config.authMethod === authMethods.OAUTH) {
+					elements.authMethodDisplay.text('OAuth Authentication Active');
+					elements.oauthAuthStatus.removeClass('d-none');
+				} else if (config.authMethod === authMethods.LONG_LIVED) {
+					elements.authMethodDisplay.text('Long-lived Token Active');
+					elements.longLivedAuthStatus.removeClass('d-none');
+				} else {
+					elements.authMethodDisplay.text('Successfully authenticated');
+				}
 				break;
 
 			case this.authStates.UNAUTHENTICATED:
 				elements.authStatus.addClass('d-none');
-				elements.tokenInput.addClass('d-none');
-				elements.signInBtn.removeClass('d-none');
-				elements.manualTokenBtn.removeClass('d-none');
-				elements.orText.removeClass('d-none');
+				elements.authMethodSelection.removeClass('d-none');
 				break;
 		}
 	}
 
-	showManualTokenInput() {
+	showLongLivedTokenInput() {
 		const elements = this._getModalElements();
 		elements.tokenInput.removeClass('d-none');
-		elements.manualTokenBtn.addClass('d-none');
+		elements.longLivedBtn.addClass('d-none');
 		elements.tokenField.focus();
 	}
 
@@ -723,7 +808,7 @@ class HAScaleAuthUIManager {
 
 	updateConnectionStatus(isConnected) {
 		const elements = this._getModalElements();
-		const $status = elements.modal.find('[data-ha-connection-status]');
+		const $status = elements.connectionStatus;
 		if ($status.length > 0) {
 			$status.text(isConnected ? 'Connected' : 'Not connected')
 				.removeClass('text-success text-danger')
@@ -753,14 +838,14 @@ class HAScaleStyleManager {
 					border-color: #007bff !important;
 				}
 				.${css.BUTTON_BASE}.${css.BUTTON_WAITING} i {
-					animation: ha-scale-pulse 1.5s ease-in-out infinite;
+					animation: ha-scale-pulse ${HAScaleConstants.CONFIG.ANIMATION.PULSE_DURATION} ease-in-out infinite;
 				}
 				
 				/* Animations */
 				@keyframes ha-scale-pulse {
-					0% { transform: scale(1); opacity: 1; }
-					50% { transform: scale(1.2); opacity: 0.7; }
-					100% { transform: scale(1); opacity: 1; }
+					0% { transform: scale(${HAScaleConstants.CONFIG.ANIMATION.SCALE_NORMAL}); opacity: ${HAScaleConstants.CONFIG.ANIMATION.OPACITY_NORMAL}; }
+					50% { transform: scale(${HAScaleConstants.CONFIG.ANIMATION.SCALE_ENLARGED}); opacity: ${HAScaleConstants.CONFIG.ANIMATION.OPACITY_DIMMED}; }
+					100% { transform: scale(${HAScaleConstants.CONFIG.ANIMATION.SCALE_NORMAL}); opacity: ${HAScaleConstants.CONFIG.ANIMATION.OPACITY_NORMAL}; }
 				}
 			</style>
 		`;
@@ -770,8 +855,7 @@ class HAScaleStyleManager {
 }
 
 class HAScaleOAuthManager {
-	constructor(notificationCallback, authUIManager) {
-		this.showNotification = notificationCallback;
+	constructor(authUIManager) {
 		this.authUIManager = authUIManager;
 	}
 
@@ -808,20 +892,26 @@ class HAScaleOAuthManager {
 
 	async _handleOAuthCallback(code, state) {
 		try {
-			// Sanitize OAuth parameters
-			const sanitizedCode = HAScaleUtils.sanitizeToken(code);
-			const sanitizedState = HAScaleUtils.sanitizeToken(state);
-			
-			if (!sanitizedCode) {
-				this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_ERROR);
+			// Validate OAuth parameters (don't sanitize state as it breaks OAuth flow)
+			if (!code || !state) {
+				HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_ERROR);
 				return;
 			}
 
 			const storedState = HAScaleStorageService.get(HAScaleConstants.CONFIG.STORAGE_KEYS.OAUTH_STATE);
 			HAScaleStorageService.remove(HAScaleConstants.CONFIG.STORAGE_KEYS.OAUTH_STATE);
 
-			if (sanitizedState !== storedState) {
-				this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_STATE_MISMATCH);
+			// Compare raw state values - do NOT sanitize as OAuth state can contain base64 characters
+			if (state !== storedState) {
+				HAScaleLogger.error('OAuth', `State mismatch - received: "${state}", expected: "${storedState}"`);
+				HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_STATE_MISMATCH);
+				return;
+			}
+			
+			// Only sanitize the authorization code for security
+			const sanitizedCode = HAScaleUtils.sanitizeToken(code);
+			if (!sanitizedCode) {
+				HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_ERROR);
 				return;
 			}
 
@@ -837,23 +927,28 @@ class HAScaleOAuthManager {
 			const tokenData = await this._exchangeCodeForToken(haUrl, sanitizedCode);
 			
 			if (tokenData && tokenData.access_token) {
-				// Update model with new authentication - UI will update automatically via observer
+				// Update model with OAuth authentication
 				const controller = Grocy.Components.HomeAssistantScale.Controller;
 				if (controller) {
 					const currentConfig = controller.model.config;
+					controller.model.setAuthMethod(HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH, tokenData);
 					controller.model.updateConfig({
 						haUrl: haUrl,
-						haToken: tokenData.access_token,
-						scaleEntityId: currentConfig.scaleEntityId || '' // Preserve existing entity ID if any
+						scaleEntityId: currentConfig.scaleEntityId || '', // Preserve existing entity ID if any
+						authMethod: HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH
 					});
 				}
 				
-				this.showNotification('success', HAScaleConstants.CONFIG.MESSAGES.OAUTH_SUCCESS);
+				// Show OAuth success in the card
+				const elements = this.authUIManager._getModalElements();
+				elements.oauthAuthStatus.removeClass('d-none');
+				
+				HAScaleUtils.showNotification('success', HAScaleConstants.CONFIG.MESSAGES.OAUTH_SUCCESS);
 				this.authUIManager.openModalForEntityConfig();
 			}
 		} catch (error) {
 			HAScaleLogger.error('OAuth', 'OAuth token exchange error:', error);
-			this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_FAILED);
+			HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.OAUTH_FAILED);
 		}
 	}
 
@@ -900,7 +995,6 @@ class HAScaleEventManager {
 	addHandler(element, event, handler, options = {}) {
 		const key = `${element}_${event}_${Date.now()}_${Math.random()}`;
 		
-		// Store handler reference
 		this.handlers.set(key, {
 			element: $(element),
 			event,
@@ -908,7 +1002,6 @@ class HAScaleEventManager {
 			options
 		});
 
-		// Attach handler
 		if (options.selector) {
 			$(element).on(event, options.selector, handler);
 		} else {
@@ -967,13 +1060,11 @@ class HAScaleErrorHandler {
 			} catch (error) {
 				lastError = error;
 				
-				// Check if we should retry
 				if (attempt === maxRetries || !retryCondition(error)) {
 					HAScaleLogger.error('ErrorHandler', `${context} failed after ${attempt + 1} attempts:`, error);
 					break;
 				}
 				
-				// Calculate delay
 				const delay = exponentialBackoff 
 					? retryDelay * Math.pow(2, attempt)
 					: retryDelay;
@@ -985,14 +1076,12 @@ class HAScaleErrorHandler {
 			}
 		}
 		
-		// All retries exhausted
 		throw lastError;
 	}
 
 	static handleError(error, context = 'Unknown', showNotification = null) {
 		HAScaleLogger.error('ErrorHandler', `${context} error:`, error);
 		
-		// Categorize errors
 		if (error.name === 'NetworkError' || error.message.includes('fetch')) {
 			if (showNotification) {
 				showNotification('error', HAScaleConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
@@ -1011,15 +1100,13 @@ class HAScaleErrorHandler {
 	}
 
 	static isRetryableError(error) {
-		// Define which errors are worth retrying
 		if (!error) return false;
 		
 		// Handle HAWS error codes - don't retry auth errors
 		if (error === window.HAWS?.ERR_INVALID_AUTH) {
-			return false; // Auth errors need user intervention
+			return false;
 		}
 		
-		// Retry connection errors
 		if (error === window.HAWS?.ERR_CANNOT_CONNECT ||
 			error === window.HAWS?.ERR_CONNECTION_LOST) {
 			return true;
@@ -1031,7 +1118,7 @@ class HAScaleErrorHandler {
 			message.includes('timeout') ||
 			message.includes('ECONNRESET') ||
 			message.includes('ENOTFOUND') ||
-			(error.status >= 500 && error.status < 600) // Server errors
+			(error.status >= HAScaleConstants.CONFIG.HTTP_STATUS.SERVER_ERROR_MIN && error.status < HAScaleConstants.CONFIG.HTTP_STATUS.SERVER_ERROR_MAX)
 		);
 	}
 }
@@ -1052,52 +1139,95 @@ class HAScaleTemplateGenerator {
 								<input type="text" class="form-control url-input" placeholder="http://homeassistant.local:8123">
 							</div>
 							<div class="form-group auth-group">
-								<label>Authentication</label>
-								<div class="auth-status mb-2 d-none">
+								<label>Authentication Method</label>
+								
+								<!-- Authentication Status -->
+								<div class="auth-status mb-3 d-none">
 									<div class="alert alert-success d-flex justify-content-between align-items-center">
-										<span><i class="fa-solid fa-check-circle"></i> Successfully authenticated</span>
+										<div>
+											<i class="fa-solid fa-check-circle"></i> 
+											<span class="auth-method-display">Successfully authenticated</span>
+										</div>
 										<button type="button" class="btn btn-sm btn-danger logout-btn">
 											<i class="fa-solid fa-sign-out-alt"></i> Disconnect
 										</button>
 									</div>
 								</div>
-								<div class="mb-2">
-									<button type="button" class="btn btn-primary btn-block signin-btn">
-										<i class="fa-solid fa-sign-in-alt"></i> Sign in with Home Assistant
-									</button>
-								</div>
-								<div class="text-center mb-2 or-text">
-									<small class="text-muted">or</small>
-								</div>
-								<div class="mb-2">
-									<button type="button" class="btn btn-outline-secondary btn-block manual-token-btn">
-										<i class="fa-solid fa-key"></i> Enter access token manually
-									</button>
-								</div>
-								<div class="token-input d-none">
-									<input type="password" class="form-control token-field" placeholder="Your HA access token">
-									<small class="form-text text-muted">
-										You can create a long-lived access token in Home Assistant under Profile → Security → Long-lived access tokens
-									</small>
+								
+								<!-- Authentication Method Selection -->
+								<div class="auth-method-selection">
+									<div class="card mb-3 oauth-card">
+										<div class="card-body">
+											<h6 class="card-title">
+												<i class="fa-solid fa-shield-alt"></i> OAuth Authentication (Recommended)
+											</h6>
+											<p class="card-text small text-muted">
+												Secure authentication with automatic token refresh. Tokens persist across browser sessions.
+											</p>
+											<div class="oauth-auth-status d-none mb-2">
+												<div class="alert alert-success mb-0">
+													<i class="fa-solid fa-check-circle"></i> OAuth authentication successful
+												</div>
+											</div>
+											<button type="button" class="btn btn-primary btn-block oauth-signin-btn">
+												<i class="fa-solid fa-sign-in-alt"></i> Sign in with Home Assistant
+											</button>
+										</div>
+									</div>
+									
+									<div class="card long-lived-card">
+										<div class="card-body">
+											<h6 class="card-title">
+												<i class="fa-solid fa-key"></i> Long-lived Access Token
+											</h6>
+											<p class="card-text small text-muted">
+												Use a manually created long-lived access token. You'll need to create this in Home Assistant first.
+											</p>
+											<div class="long-lived-auth-status d-none mb-2">
+												<div class="alert alert-success mb-0">
+													<i class="fa-solid fa-check-circle"></i> Long-lived token validated
+												</div>
+											</div>
+											<button type="button" class="btn btn-outline-secondary btn-block long-lived-btn">
+												<i class="fa-solid fa-key"></i> Use Long-lived Token
+											</button>
+											<div class="token-input mt-3 d-none">
+												<input type="password" class="form-control token-field" placeholder="Enter your long-lived access token">
+												<small class="form-text text-muted">
+													Create this in Home Assistant: Profile → Security → Long-lived access tokens
+												</small>
+												<button type="button" class="btn btn-primary btn-sm mt-2 token-validate-btn">
+													<i class="fa-solid fa-check"></i> Validate Token
+												</button>
+											</div>
+										</div>
+									</div>
 								</div>
 							</div>
 							<div class="form-group entity-group">
 								<label>Scale Entity ID</label>
 								<input type="text" class="form-control entity-input" placeholder="e.g. sensor.kitchen_scale, must have 'is_stable' attribute">
-								<small class="form-text text-muted">Connection status: <span class="connection-status">Not connected</span></small>
 							</div>
-							<div class="form-group debug-group">
-								<div class="form-check">
-									<input type="checkbox" class="form-check-input debug-toggle" id="ha-debug-toggle">
-									<label class="form-check-label" for="ha-debug-toggle">
-										<small>Enable debug logging</small>
-									</label>
-								</div>
+							<div class="form-group log-level-group">
+								<label for="ha-log-level">
+									<small>Log Level</small>
+								</label>
+								<select class="form-control form-control-sm log-level-select" id="ha-log-level">
+									<option value="0">Error only</option>
+									<option value="1">Warning & Error</option>
+									<option value="2" selected>Info, Warning & Error</option>
+									<option value="3">All (Debug)</option>
+								</select>
 							</div>
 						</div>
-						<div class="modal-footer">
-							<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-							<button type="button" class="btn btn-primary config-save">Save & Connect</button>
+						<div class="modal-footer d-flex justify-content-between align-items-center">
+							<div class="connection-status-display">
+								<small class="text-muted">Connection: <span class="connection-status text-danger">Not connected</span></small>
+							</div>
+							<div>
+								<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+								<button type="button" class="btn btn-success config-save ml-2">Save & Test</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -1131,7 +1261,7 @@ class HAScaleView {
 		this.inputManager = new HAScaleInputManager();
 		this.authUIManager = new HAScaleAuthUIManager();
 		this.styleManager = new HAScaleStyleManager(this.config);
-		this.oauthManager = new HAScaleOAuthManager((type, message, options) => this.showNotification(type, message, options), this.authUIManager);
+		this.oauthManager = new HAScaleOAuthManager(this.authUIManager);
 	}
 
 	initialize() {
@@ -1166,26 +1296,13 @@ class HAScaleView {
 	}
 
 	cleanup() {
-		// Clean up event handlers to prevent memory leaks
 		this.eventManager.cleanup();
 		
-		// Clear cache
 		this._clearCache();
 		
-		// Reset initialization state
 		this.initialized = false;
 	}
 
-	showNotification(type, message, options = {}) {
-		if (typeof toastr !== 'undefined') {
-			const defaultOptions = {
-				timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_DEFAULT,
-				positionClass: HAScaleConstants.CONFIG.NOTIFICATION.POSITION,
-				...options
-			};
-			toastr[type](message, '', defaultOptions);
-		}
-	}
 
 	updateInputState(input, state) {
 		const $input = $(input);
@@ -1200,14 +1317,12 @@ class HAScaleView {
 			HAScaleLogger.debug('UI', `Updating input state to '${state}' for: ${inputRef}`);
 		}
 		
-		// Get unit info for button state
 		let unitInfo = null;
 		if (Grocy.Components.HomeAssistantScale.Controller) {
 			unitInfo = Grocy.Components.HomeAssistantScale.Controller.unitService.getExpectedUnitWithFallback(input);
 			HAScaleLogger.debug('UI', `Detected unit for ${inputRef}: ${unitInfo.unit} (fallback: ${unitInfo.isFallback})`);
 		}
 		
-		// Map old state names to new input manager states
 		const stateMap = {
 			'waiting': this.inputManager.states.WAITING,
 			'fulfilled': this.inputManager.states.FULFILLED,
@@ -1223,7 +1338,6 @@ class HAScaleView {
 		HAScaleLogger.info('UI', `Resetting all scale input states (reason: ${reason})`);
 		this.inputManager.resetAll();
 		
-		// Clear cache after reset to ensure fresh lookups
 		this._clearCache();
 	}
 
@@ -1252,7 +1366,6 @@ class HAScaleView {
 		
 		$input.before($button);
 		
-		// Use event manager to track handler
 		this.eventManager.addHandler($button, 'click', (e) => {
 			e.preventDefault();
 			e.stopPropagation();
@@ -1365,49 +1478,82 @@ class HAScaleView {
 			const controller = Grocy.Components.HomeAssistantScale.Controller;
 			if (controller) {
 				const config = controller.model.config;
-				const hasToken = config.haToken && config.haToken.length > 0;
-				const authState = hasToken ? 
+				const hasAuth = controller.model.hasValidAuth();
+				const authState = hasAuth ? 
 					this.authUIManager.authStates.AUTHENTICATED : 
 					this.authUIManager.authStates.UNAUTHENTICATED;
 				
 				this.authUIManager.updateAuthUI(authState, config);
+				HAScaleLogger.debug('UI', 'Modal opened with auth state:', authState, 'config:', config);
 			}
 		});
 		
-		// Set up event handlers using the element cache
 		this._setupConfigEventHandlers();
 	}
 
 	_setupConfigEventHandlers() {
 		const elements = this.authUIManager._getModalElements();
 		
-		// Config save button
-		this.eventManager.addHandler(elements.configSave, 'click', () => {
-			HAScaleLogger.info('UI', 'Config save button clicked, validating configuration');
+		// Config save button - only handles entity validation and final save/test
+		this.eventManager.addHandler(elements.configSave, 'click', async () => {
+			HAScaleLogger.debug('UI', 'Save & Test button clicked');
 			
-			const config = HAScaleUtils.validateConfig(elements, (type, message, options) => this.showNotification(type, message, options));
-			if (!config) return;
+			const controller = Grocy.Components.HomeAssistantScale.Controller;
+			if (!controller) {
+				HAScaleUtils.showNotification('error', 'Controller not available');
+				return;
+			}
 			
-			HAScaleLogger.info('UI', `Configuration validated successfully: URL=${config.haUrl}, Entity=${config.scaleEntityId}`);
+			const config = controller.model.config;
+			if (!config.haUrl) {
+				HAScaleUtils.showNotification('error', 'Please enter Home Assistant URL first');
+				return;
+			}
 			
-			// Validate entity exists before saving
-			this.validateEntityExists(config).then(isValid => {
-				if (isValid) {
-					HAScaleLogger.info('UI', 'Entity validation successful, saving configuration');
-					$(document).trigger('HAScale.ConfigSave', [config]);
-					elements.modal.modal('hide');
-				}
-			}).catch(error => {
-				HAScaleLogger.error('UI', 'Entity validation error:', error);
-				this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.VALIDATION_FAILED);
+			if (!controller.model.hasValidAuth()) {
+				HAScaleUtils.showNotification('error', 'Please complete authentication first');
+				return;
+			}
+			
+			const haUrl = HAScaleUtils.sanitizeUrl(elements.urlInput.val());
+			const scaleEntityId = HAScaleUtils.sanitizeEntityId(elements.entityInput.val());
+			
+			if (!haUrl || !scaleEntityId) {
+				HAScaleUtils.showNotification('error', 'Please fill in Home Assistant URL and Scale Entity ID');
+				return;
+			}
+			
+			// Update configuration with current form values
+			controller.model.updateConfig({
+				haUrl: haUrl,
+				scaleEntityId: scaleEntityId,
+				authMethod: controller.model.config.authMethod
 			});
+			
+			try {
+				elements.configSave.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Testing...');
+				
+				// Test the entity exists and connection works
+				HAScaleLogger.info('UI', `Testing connection and entity: ${scaleEntityId}`);
+				
+				// Try to connect and validate entity
+				await controller.connectionService.connect();
+				
+				HAScaleUtils.showNotification('success', 'Configuration saved and tested successfully!');
+				elements.modal.modal('hide');
+			} catch (error) {
+				HAScaleLogger.error('UI', 'Configuration test failed:', error);
+				HAScaleUtils.showNotification('error', 'Configuration test failed. Please check your settings.');
+			} finally {
+				elements.configSave.prop('disabled', false).html('Save & Test');
+			}
 		});
 		
-		// Sign in with Home Assistant OAuth flow
-		this.eventManager.addHandler(elements.signInBtn, 'click', () => {
+		// OAuth sign in button
+		this.eventManager.addHandler(elements.oauthSigninBtn, 'click', () => {
 			const rawUrl = elements.urlInput.val();
 			const haUrl = HAScaleUtils.sanitizeUrl(rawUrl);
-			if (!HAScaleUtils.validateUrl(haUrl, (type, message, options) => this.showNotification(type, message, options))) {
+			if (!HAScaleUtils.validateUrl(haUrl, HAScaleUtils.showNotification)) {
 				return;
 			}
 			
@@ -1417,65 +1563,107 @@ class HAScaleView {
 			this.oauthManager.initializeOAuthFlow(haUrl);
 		});
 		
-		// Manual token entry toggle
-		this.eventManager.addHandler(elements.manualTokenBtn, 'click', () => {
-			this.authUIManager.showManualTokenInput();
+		// Long-lived token button
+		this.eventManager.addHandler(elements.longLivedBtn, 'click', () => {
+			this.authUIManager.showLongLivedTokenInput();
+		});
+		
+		// Token validation button
+		this.eventManager.addHandler(elements.tokenValidateBtn, 'click', async () => {
+			const rawUrl = elements.urlInput.val();
+			const haUrl = HAScaleUtils.sanitizeUrl(rawUrl);
+			const token = elements.tokenField.val();
+			
+			if (!haUrl || !HAScaleUtils.validateUrl(haUrl, HAScaleUtils.showNotification)) {
+				return;
+			}
+			
+			if (!token || !HAScaleUtils.validateToken(token, HAScaleUtils.showNotification)) {
+				return;
+			}
+			
+			// Validate the token by creating a test connection
+			try {
+				elements.tokenValidateBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Validating...');
+				
+				const auth = window.HAWS.createLongLivedTokenAuth(haUrl, token);
+				const connection = await window.HAWS.createConnection({ auth });
+				
+				// Test the connection
+				await connection.ping();
+				connection.close();
+				
+				// Success - save the authentication
+				const controller = Grocy.Components.HomeAssistantScale.Controller;
+				if (controller) {
+					controller.model.setAuthMethod(HAScaleConstants.CONFIG.AUTH_METHODS.LONG_LIVED, token);
+					controller.model.updateConfig({
+						haUrl: haUrl,
+						scaleEntityId: controller.model.config.scaleEntityId || '',
+						authMethod: HAScaleConstants.CONFIG.AUTH_METHODS.LONG_LIVED
+					});
+				}
+				
+				elements.longLivedAuthStatus.removeClass('d-none');
+				HAScaleUtils.showNotification('success', 'Long-lived token validated successfully!');
+			} catch (error) {
+				HAScaleLogger.error('UI', 'Token validation error:', error);
+				HAScaleUtils.showNotification('error', 'Token validation failed. Please check your token and URL.');
+			} finally {
+				elements.tokenValidateBtn.prop('disabled', false).html('<i class="fa-solid fa-check"></i> Validate Token');
+			}
 		});
 		
 		// Logout/disconnect button
 		this.eventManager.addHandler(elements.logoutBtn, 'click', () => {
-			// Clear stored tokens
-			HAScaleStorageService.remove(HAScaleConstants.CONFIG.STORAGE_KEYS.AUTH_TOKENS);
-			elements.tokenField.val('');
-			
 			const controller = Grocy.Components.HomeAssistantScale.Controller;
 			if (controller) {
 				const currentConfig = controller.model.config;
-				// Clear only authentication from model, keep URL and entity ID
-				// UI will update automatically via onConfigUpdated observer
+				// Clear all authentication but preserve URL and entity ID
+				controller.model.clearAllAuth();
 				controller.model.updateConfig({
 					haUrl: currentConfig.haUrl,
-					haToken: null,
-					scaleEntityId: currentConfig.scaleEntityId
+					scaleEntityId: currentConfig.scaleEntityId,
+					authMethod: null
 				});
 			}
 			
-			this.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.LOGOUT_SUCCESS);
+			elements.tokenField.val('');
+			
+			HAScaleUtils.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.LOGOUT_SUCCESS);
 		});
 		
-		// Debug toggle
-		this.eventManager.addHandler(elements.debugToggle, 'change', (e) => {
-			if (e.target.checked) {
-				HAScaleLogger.enable();
-			} else {
-				HAScaleLogger.disable();
-			}
+		// Log level selector
+		this.eventManager.addHandler(elements.logLevelSelect, 'change', (e) => {
+			const newLevel = parseInt(e.target.value);
+			HAScaleLogger.setLevel(newLevel);
+			HAScaleLogger.info('UI', `Log level changed to: ${HAScaleLogger.LEVEL_NAMES[newLevel]}`);
 		});
 	}
 
-	
-	async validateEntityExists(config) {
+	async validateEntityWithAuth(config) {
+		const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
+		
 		try {
-			// Create temporary auth object for validation
-			const authTokens = {
-				access_token: config.haToken,
-				hassUrl: config.haUrl,
-				clientId: window.location.origin,
-				expires: Date.now() + HAScaleConstants.CONFIG.TIMEOUTS.TOKEN_VALIDATION // 30 seconds for validation
-			};
-
-			// Get auth using the library
-			const auth = await window.HAWS.getAuth({
-				hassUrl: config.haUrl,
-				clientId: window.location.origin,
-				loadTokens: () => authTokens
-			});
-
-			if (!auth) {
-				throw new Error('Failed to create authentication');
+			let auth;
+			
+			if (config.authMethod === authMethods.OAUTH) {
+				// For OAuth, we need to use stored tokens
+				const tokens = this.connectionService._loadOAuthTokens();
+				if (!tokens || !tokens.access_token) {
+					throw new Error('OAuth tokens not available for validation');
+				}
+				auth = new window.HAWS.Auth(tokens, () => {});
+			} else if (config.authMethod === authMethods.LONG_LIVED) {
+				// Create temporary auth for validation
+				auth = window.HAWS.createLongLivedTokenAuth(config.haUrl, config.authData);
 			}
-
-			// Create temporary connection
+			
+			if (!auth) {
+				throw new Error('Failed to create authentication for validation');
+			}
+			
+			// Create temporary connection for validation
 			const connection = await window.HAWS.createConnection({ auth });
 			
 			try {
@@ -1487,15 +1675,15 @@ class HAScaleView {
 				connection.close();
 				
 				if (!entity) {
-					this.showNotification('error', HAScaleUtils.formatMessage(HAScaleConstants.CONFIG.MESSAGES.ENTITY_NOT_FOUND, config.scaleEntityId));
+					HAScaleUtils.showNotification('error', HAScaleUtils.formatMessage(HAScaleConstants.CONFIG.MESSAGES.ENTITY_NOT_FOUND, config.scaleEntityId));
 					return false;
 				}
 				
 				// Entity exists - validate it has the required attributes
 				if (!entity.attributes || typeof entity.attributes.is_stable === 'undefined') {
-					this.showNotification('warning', HAScaleUtils.formatMessage(HAScaleConstants.CONFIG.MESSAGES.ENTITY_MISSING_ATTRIBUTE, config.scaleEntityId));
+					HAScaleUtils.showNotification('warning', HAScaleUtils.formatMessage(HAScaleConstants.CONFIG.MESSAGES.ENTITY_MISSING_ATTRIBUTE, config.scaleEntityId));
 				} else {
-					this.showNotification('success', HAScaleUtils.formatMessage(HAScaleConstants.CONFIG.MESSAGES.ENTITY_VALIDATED, config.scaleEntityId));
+					HAScaleUtils.showNotification('success', HAScaleUtils.formatMessage(HAScaleConstants.CONFIG.MESSAGES.ENTITY_VALIDATED, config.scaleEntityId));
 				}
 				
 				return true;
@@ -1508,16 +1696,17 @@ class HAScaleView {
 			
 			// Provide more specific error messages
 			if (error.message.includes('auth') || error.message.includes('Authentication')) {
-				this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.AUTH_FAILED);
+				HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.AUTH_FAILED);
 			} else if (error.message.includes('timeout') || error.message.includes('network')) {
-				this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
+				HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
 			} else {
-				this.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.VALIDATION_FAILED);
+				HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.VALIDATION_FAILED);
 			}
 			
 			return false;
 		}
 	}
+	
 }
 
 class HAScaleConnectionService {
@@ -1615,16 +1804,18 @@ class HAScaleConnectionService {
 			let errorMessage = 'Unknown connection error';
 			if (error === window.HAWS?.ERR_INVALID_AUTH) {
 				errorMessage = 'Invalid authentication - token may be expired';
-				HAScaleLogger.warn('Connection', 'Invalid auth error - clearing stored tokens');
-				// Clear stored tokens so user can re-authenticate
-				this._saveTokens(null);
-				this.model.updateConfig({ haToken: null });
+				HAScaleLogger.warn('Connection', 'Invalid auth error - user needs to re-authenticate');
+				// Don't automatically clear tokens - let user choose to re-authenticate
 			} else if (error === window.HAWS?.ERR_CANNOT_CONNECT) {
 				errorMessage = 'Cannot connect to Home Assistant - check URL and network';
 			} else if (error === window.HAWS?.ERR_CONNECTION_LOST) {
 				errorMessage = 'Connection to Home Assistant lost';
 			} else if (error === window.HAWS?.ERR_HASS_HOST_REQUIRED) {
 				errorMessage = 'Home Assistant URL is required';
+			} else {
+				// Log the actual error for debugging
+				errorMessage = error.message || error.toString() || 'Unknown connection error';
+				HAScaleLogger.debug('Connection', 'Full error details:', error);
 			}
 
 			HAScaleLogger.error('Connection', `Connection failed: ${errorMessage}`);
@@ -1647,84 +1838,120 @@ class HAScaleConnectionService {
 	async _getAuth() {
 		try {
 			// Check if HAWS library is available
-			if (!window.HAWS || !window.HAWS.getAuth) {
-				throw new Error('home-assistant-js-websocket getAuth function not available');
+			if (!window.HAWS) {
+				throw new Error('home-assistant-js-websocket library not available');
 			}
 
-			// Use the library's getAuth with custom token persistence
-			const auth = await window.HAWS.getAuth({
-				hassUrl: this.model.config.haUrl,
-				clientId: window.location.origin,
-				saveTokens: (tokens) => this._saveTokens(tokens),
-				loadTokens: () => this._loadTokens()
-			});
+			const authMethod = this.model.config.authMethod;
+			const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
+			
+			HAScaleLogger.debug('Connection', 'Getting auth with method:', authMethod);
 
-			return auth;
+			if (authMethod === authMethods.OAUTH) {
+				return await this._getOAuthAuth();
+			} else if (authMethod === authMethods.LONG_LIVED) {
+				return this._getLongLivedAuth();
+			} else {
+				throw new Error(`No authentication method configured (current: ${authMethod})`);
+			}
 		} catch (error) {
 			HAScaleLogger.error('Connection', 'Authentication error:', error);
 			return null;
 		}
 	}
+	
+	async _getOAuthAuth() {
+		// Load existing OAuth tokens without triggering automatic redirect
+		const tokens = this._loadOAuthTokens();
+		
+		if (!tokens || !tokens.access_token) {
+			// No tokens available - don't redirect automatically
+			// User needs to manually initiate OAuth flow
+			throw new Error('No OAuth tokens available - user authentication required');
+		}
+		
+		// Ensure token data has required fields for Auth object
+		const completeTokens = {
+			...tokens,
+			hassUrl: tokens.hassUrl || this.model.config.haUrl,
+			clientId: tokens.clientId || window.location.origin
+		};
+		
+		// Create Auth object from complete token data
+		const auth = new window.HAWS.Auth(completeTokens, (updatedTokens) => this._saveOAuthTokens(updatedTokens));
+		
+		return auth;
+	}
+	
+	_getLongLivedAuth() {
+		const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+		const longLivedToken = HAScaleStorageService.get(keys.LONG_LIVED_TOKEN);
+		
+		if (!longLivedToken) {
+			throw new Error('No long-lived token found');
+		}
+		
+		// Create long-lived token auth using the library helper
+		return window.HAWS.createLongLivedTokenAuth(this.model.config.haUrl, longLivedToken);
+	}
 
-	_saveTokens(tokens) {
+	_saveOAuthTokens(tokens) {
 		try {
+			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
 			if (tokens) {
-				// Store complete token data including refresh token
-				HAScaleStorageService.setJson(HAScaleConstants.CONFIG.STORAGE_KEYS.AUTH_TOKENS, tokens);
-				// Update model with current access token for compatibility
-				this.model.config.haToken = tokens.access_token;
-				this.model.saveConfiguration();
+				// Store complete OAuth token data including refresh token
+				HAScaleStorageService.setJson(keys.OAUTH_TOKENS, tokens);
+				HAScaleLogger.debug('Connection', 'OAuth tokens saved successfully');
 			} else {
-				// Clear tokens
-				HAScaleStorageService.remove(HAScaleConstants.CONFIG.STORAGE_KEYS.AUTH_TOKENS);
+				// Clear OAuth tokens only
+				HAScaleStorageService.remove(keys.OAUTH_TOKENS);
+				HAScaleLogger.debug('Connection', 'OAuth tokens cleared');
 			}
 		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error saving tokens', error);
+			HAScaleLogger.error('Connection', 'Error saving OAuth tokens', error);
 		}
 	}
 
-	_loadTokens() {
+	_loadOAuthTokens() {
 		try {
-			const tokens = HAScaleStorageService.getJson(HAScaleConstants.CONFIG.STORAGE_KEYS.AUTH_TOKENS);
-			if (tokens) {
+			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
+			const tokens = HAScaleStorageService.getJson(keys.OAUTH_TOKENS);
+			
+			if (tokens && tokens.access_token && tokens.refresh_token) {
+				HAScaleLogger.debug('Connection', 'OAuth tokens loaded successfully');
 				return tokens;
 			}
 			
-			// Fallback: try to create tokens from stored access token
-			if (this.model.config.haToken) {
-				return {
-					access_token: this.model.config.haToken,
-					hassUrl: this.model.config.haUrl,
-					clientId: window.location.origin,
-					// Set expiry to very soon to force refresh attempt
-					expires: Date.now() + 1000
-				};
-			}
-			
+			HAScaleLogger.debug('Connection', 'No valid OAuth tokens found');
 			return null;
 		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error loading tokens', error);
+			HAScaleLogger.error('Connection', 'Error loading OAuth tokens', error);
 			return null;
 		}
 	}
 
 	async _handleAuthError() {
 		try {
-			// Clear current auth and try to get new auth
+			// Clear current auth instance but don't clear stored tokens yet
 			this.auth = null;
-			this.auth = await this._getAuth();
 			
-			if (this.auth) {
-				HAScaleLogger.debug('Connection', 'Auth refreshed successfully');
-				// Connection will automatically retry with new auth
-			} else {
-				HAScaleLogger.warn('Connection', 'Auth refresh failed, user needs to re-authenticate');
-				// Clear stored tokens and notify user
-				this._saveTokens(null);
-				this.model.updateConfig({ haToken: null });
+			// Try to refresh auth - this will use existing stored tokens
+			try {
+				this.auth = await this._getAuth();
+				if (this.auth) {
+					HAScaleLogger.debug('Connection', 'Auth refreshed successfully');
+					return; // Success, let connection retry
+				}
+			} catch (authError) {
+				// Log the specific auth error but don't clear tokens
+				// Most auth "errors" are actually network/connection issues
+				HAScaleLogger.warn('Connection', 'Auth refresh attempt failed, will retry on next connection:', authError);
 			}
+			
+			// Don't clear tokens here - let the connection retry logic handle it
+			// Tokens will only be cleared if user manually logs out or specific invalid token errors occur
 		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error handling auth error', error);
+			HAScaleLogger.error('Connection', 'Error in auth error handler', error);
 		}
 	}
 
@@ -1951,7 +2178,6 @@ class HAScaleUnitService {
 			}
 		}
 		
-		// Fallback to grams
 		return { unit: 'g', isFallback: true };
 	}
 
@@ -2030,8 +2256,8 @@ class HAScaleController {
 			},
 			onConfigUpdated: async (config) => {
 				// Update UI based on new config
-				const hasToken = config.haToken && config.haToken.length > 0;
-				const authState = hasToken ? 
+				const hasAuth = this.model.hasValidAuth();
+				const authState = hasAuth ? 
 					this.view.authUIManager.authStates.AUTHENTICATED : 
 					this.view.authUIManager.authStates.UNAUTHENTICATED;
 				this.view.authUIManager.updateAuthUI(authState, config);
@@ -2044,6 +2270,12 @@ class HAScaleController {
 						await this.connectionService.connect();
 					} catch (error) {
 						HAScaleLogger.error('Controller', 'Connection attempt failed', error);
+						
+						// If auth error and no valid auth, show modal for user to re-authenticate
+						if (error.message && error.message.includes('authentication required')) {
+							HAScaleLogger.info('Controller', 'Authentication required - showing config modal');
+							// Don't auto-redirect, let user choose to re-authenticate
+						}
 					}
 				}
 			}
@@ -2051,9 +2283,16 @@ class HAScaleController {
 	}
 
 	setupEventHandlers() {
-		const eventMap = {
+		// Define event handlers for new config format
+		const updatedEventMap = {
 			'HAScale.ConfigSave': (_, config) => {
-				this.model.updateConfig(config);
+				// Handle the new config format with separated auth methods
+				this.model.setAuthMethod(config.authMethod, config.authData);
+				this.model.updateConfig({
+					haUrl: config.haUrl,
+					scaleEntityId: config.scaleEntityId,
+					authMethod: config.authMethod
+				});
 			},
 			'HAScale.ClearInput': (_, input) => {
 				const controller = Grocy.Components.HomeAssistantScale.Controller;
@@ -2062,23 +2301,23 @@ class HAScaleController {
 				
 				if (!isConfigComplete || !isConnected) {
 					$('#ha-scale-config-modal').modal('show');
-					controller?.view?.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.CONFIG_REQUIRED, { timeOut: 3000 });
+					HAScaleUtils.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.CONFIG_REQUIRED, { timeOut: 3000 });
 					return;
 				} else {
 					this.inputService.clearInput(input);
-					this.view.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.WAITING_FOR_WEIGHT, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_MEDIUM });
+					HAScaleUtils.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.WAITING_FOR_WEIGHT, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_MEDIUM });
 				}
 			}
 		};
 
 		// Setup document events
-		Object.entries(eventMap).forEach(([event, handler]) => {
+		Object.entries(updatedEventMap).forEach(([event, handler]) => {
 			this._addEventHandler($(document), event, handler);
 		});
 		
 		// Form reset handling
 		this._addEventHandler($(document), 'reset', 'form', () => {
-			setTimeout(() => this.view.resetAllInputs('form-reset'), this.config.INPUT_DEBOUNCE / 10);
+			setTimeout(() => this.view.resetAllInputs('form-reset'), HAScaleConstants.CONFIG.FORM_RESET_DELAY);
 		});
 		
 		// Manual input detection with debouncing
@@ -2095,7 +2334,7 @@ class HAScaleController {
 						this.view.updateInputState(e.target, 'reset');
 					}
 				}
-			}, this.config.INPUT_DEBOUNCE)
+			}, HAScaleConstants.CONFIG.INPUT_DEBOUNCE)
 		);
 		
 		// Auto-target weight inputs when focused for the first time
@@ -2174,7 +2413,7 @@ class HAScaleController {
 						if ($node.hasClass('toast-success') || $node.find('.toast-success').length > 0) {
 							const message = $node.text().trim();
 							if (this.isStockOperationSuccess(message)) {
-								setTimeout(() => this.view.resetAllInputs('success-detection'), this.config.INPUT_DEBOUNCE);
+								setTimeout(() => this.view.resetAllInputs('success-detection'), HAScaleConstants.CONFIG.SUCCESS_RESET_DELAY);
 								return; // Exit early on first match
 							}
 						}
@@ -2229,10 +2468,10 @@ class HAScaleController {
 			const baseMessage = `Weight updated from scale: ${formattedWeight} ${unitInfo.unit}`;
 			const message = unitInfo.unit !== 'g' ? `${baseMessage} (converted from ${weight}g)` : baseMessage;
 			
-			this.view.showNotification('success', message);
+			HAScaleUtils.showNotification('success', message);
 		} catch (error) {
 			HAScaleLogger.error('Controller', 'Error processing stable weight:', error);
-			this.view.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.WEIGHT_PROCESSING_ERROR);
+			HAScaleUtils.showNotification('error', HAScaleConstants.CONFIG.MESSAGES.WEIGHT_PROCESSING_ERROR);
 		}
 	}
 
@@ -2273,6 +2512,9 @@ class HAScaleController {
 	}
 
 	async initialize() {
+		// Load log level from storage first
+		HAScaleLogger.loadLevel();
+		
 		HAScaleLogger.info('Controller', 'Initializing Home Assistant Scale component');
 		
 		this.view.initialize();
@@ -2282,6 +2524,13 @@ class HAScaleController {
 		
 		if (this.model.loadConfiguration()) {
 			HAScaleLogger.info('Controller', 'Configuration loaded, attempting to connect to Home Assistant');
+			HAScaleLogger.debug('Controller', 'Config state:', {
+				haUrl: this.model.config.haUrl,
+				scaleEntityId: this.model.config.scaleEntityId,
+				authMethod: this.model.config.authMethod,
+				isComplete: this.model.isConfigComplete(),
+				hasValidAuth: this.model.hasValidAuth()
+			});
 			await this.connectionService.connect();
 		} else {
 			HAScaleLogger.info('Controller', 'No configuration found, connection setup required');
@@ -2323,11 +2572,9 @@ class HAScaleController {
 		const $activeElement = $(activeElement);
 		
 		if (activeElement && this.view.isWeightInput(activeElement)) {
-			const inputRef = HAScaleUtils.getInputReference($activeElement);
-			
 			if (this.view.inputManager.isInputWaiting($activeElement)) {
 				this.view.updateInputState(activeElement, 'reset');
-				this.view.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.SCALE_READING_CANCELLED, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_QUICK });
+				HAScaleUtils.showNotification('info', HAScaleConstants.CONFIG.MESSAGES.SCALE_READING_CANCELLED, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_QUICK });
 			} else {
 				$(document).trigger('HAScale.ClearInput', [$activeElement]);
 			}
@@ -2340,14 +2587,14 @@ class HAScaleController {
 				$(document).trigger('HAScale.ClearInput', [$firstInput]);
 			} else {
 				HAScaleLogger.warn('Controller', 'No weight inputs found on page for hotkey operation');
-				this.view.showNotification('warning', HAScaleConstants.CONFIG.MESSAGES.NO_WEIGHT_INPUTS, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_MEDIUM });
+				HAScaleUtils.showNotification('warning', HAScaleConstants.CONFIG.MESSAGES.NO_WEIGHT_INPUTS, { timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_MEDIUM });
 			}
 		}
 		
 		// Clear the hotkey flag after a short delay to allow processing to complete
 		setTimeout(() => {
 			this._hotkeyInProgress = false;
-		}, this.config.INPUT_DEBOUNCE + 50);
+		}, HAScaleConstants.CONFIG.HOTKEY_CLEANUP_DELAY);
 	}
 	
 	_cleanupEventHandlers() {
@@ -2386,7 +2633,7 @@ Grocy.Components.HomeAssistantScale = {
 
 setTimeout(async () => {
 	await Grocy.Components.HomeAssistantScale.Init();
-}, HAScaleConstants.CONFIG.INPUT_DEBOUNCE);
+}, HAScaleConstants.CONFIG.INIT_DELAY);
 
 $(window).on('beforeunload', () => {
 	Grocy.Components.HomeAssistantScale.Controller?.destroy();
