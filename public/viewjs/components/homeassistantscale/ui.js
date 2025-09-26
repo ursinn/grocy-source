@@ -155,6 +155,8 @@ class HAScaleAuthUIManager {
 			urlInput: $container.find('.url-input'),
 			tokenField: $container.find('.token-field'),
 			entityInput: $container.find('.entity-input'),
+			scannerEntityInput: $container.find('.scanner-entity-input'),
+			scannerEnabledCheckbox: $container.find('.scanner-enabled-checkbox'),
 			connectionStatus: $container.find('.connection-status'),
 			configSave: $container.find('.config-save'),
 			logoutBtn: $container.find('.logout-btn'),
@@ -168,6 +170,8 @@ class HAScaleAuthUIManager {
 
 		elements.urlInput.val(config.haUrl || '');
 		elements.entityInput.val(config.scaleEntityId || '');
+		elements.scannerEntityInput.val(config.scannerEntityId || '');
+		elements.scannerEnabledCheckbox.prop('checked', config.scannerEnabled || false);
 		elements.logLevelSelect.val(HAScaleLogger.currentLevel.toString());
 
 		elements.oauthAuthStatus.addClass('d-none');
@@ -244,6 +248,12 @@ class HAScaleStyleManager {
 					animation: ha-scale-pulse ${HAScaleConstants.CONFIG.ANIMATION.PULSE_DURATION} ease-in-out infinite;
 				}
 				
+				.${css.INPUT_SCANNER_WAITING} {
+					border-color: #007bff !important;
+					box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+					background-color: rgba(0, 123, 255, 0.05) !important;
+				}
+
 				@keyframes ha-scale-pulse {
 					0% { transform: scale(${HAScaleConstants.CONFIG.ANIMATION.SCALE_NORMAL}); opacity: ${HAScaleConstants.CONFIG.ANIMATION.OPACITY_NORMAL}; }
 					50% { transform: scale(${HAScaleConstants.CONFIG.ANIMATION.SCALE_ENLARGED}); opacity: ${HAScaleConstants.CONFIG.ANIMATION.OPACITY_DIMMED}; }
@@ -340,6 +350,19 @@ class HAScaleTemplateGenerator {
 							<div class="form-group entity-group">
 								<label>Scale Entity ID</label>
 								<input type="text" class="form-control entity-input" placeholder="e.g. sensor.kitchen_scale, must have 'is_stable' attribute">
+							</div>
+							<div class="form-group scanner-group">
+								<label>Scanner Configuration</label>
+								<div class="form-check mb-2">
+									<input type="checkbox" class="form-check-input scanner-enabled-checkbox" id="scanner-enabled">
+									<label class="form-check-label" for="scanner-enabled">
+										Enable Scanner (Alt+W to toggle)
+									</label>
+								</div>
+								<input type="text" class="form-control scanner-entity-input" placeholder="e.g. sensor.barcode_scanner">
+								<small class="form-text text-muted">
+									Scanner entity for barcode/QR code reading. When enabled, focused inputs will receive scan data.
+								</small>
 							</div>
 							<div class="form-group log-level-group">
 								<label for="ha-log-level">
@@ -642,10 +665,27 @@ class HAScaleView {
 			
 			const haUrl = HAScaleUtils.sanitizeUrl(elements.urlInput.val());
 			const scaleEntityId = HAScaleUtils.sanitizeEntityId(elements.entityInput.val());
-			
+			const scannerEntityId = HAScaleUtils.sanitizeEntityId(elements.scannerEntityInput.val());
+			const scannerEnabled = elements.scannerEnabledCheckbox.prop('checked');
+
 			if (!haUrl || !scaleEntityId) {
 				HAScaleUtils.showNotification('error', 'Please fill in Home Assistant URL and Scale Entity ID');
 				return;
+			}
+
+			if (scannerEntityId) {
+				elements.configSave.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Validating Scanner...');
+
+				const scannerValid = await this.validateEntityWithAuth({
+					haUrl: haUrl,
+					scaleEntityId: scannerEntityId, // Reuse the validation method by passing scanner entity as scale entity
+					authMethod: controller.model.config.authMethod
+				});
+
+				if (!scannerValid) {
+					HAScaleUtils.showNotification('error', 'Scanner entity validation failed');
+					return;
+				}
 			}
 			
 			try {
@@ -666,6 +706,8 @@ class HAScaleView {
 				controller.model.updateConfig({
 					haUrl: haUrl,
 					scaleEntityId: scaleEntityId,
+					scannerEntityId: scannerEntityId,
+					scannerEnabled: scannerEnabled,
 					authMethod: controller.model.config.authMethod
 				});
 				

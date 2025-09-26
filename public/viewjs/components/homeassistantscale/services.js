@@ -50,7 +50,7 @@ class HAScaleConnectionService {
 			}
 
 			this.connection = await window.HAWS.createConnection({ auth: this.auth });
-			
+
 			this.connection.addEventListener('ready', () => {
 				HAScaleLogger.info('Connection', 'Connected to Home Assistant');
 				this.model.updateConnectionState({ isConnected: true, connection: this.connection });
@@ -100,15 +100,15 @@ class HAScaleConnectionService {
 
 			HAScaleLogger.error('Connection', `Connection failed: ${errorMessage}`);
 			this.model.updateConnectionState({ lastError: { code: error, message: errorMessage } });
-			
+
 			if (error === window.HAWS?.ERR_INVALID_AUTH) {
 				return false;
 			}
-			
+
 			if (HAScaleErrorHandler.isRetryableError(error)) {
 				throw error;
 			}
-			
+
 			return false;
 		}
 	}
@@ -121,7 +121,7 @@ class HAScaleConnectionService {
 
 			const authMethod = this.model.config.authMethod;
 			const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
-			
+
 			HAScaleLogger.debug('Connection', 'Getting auth with method:', authMethod);
 
 			if (authMethod === authMethods.OAUTH) {
@@ -136,7 +136,7 @@ class HAScaleConnectionService {
 			return null;
 		}
 	}
-	
+
 	async _getOAuthAuth() {
 		try {
 			return await this.authManager.createOAuthAuth(this.model.config.haUrl);
@@ -145,15 +145,15 @@ class HAScaleConnectionService {
 			throw error;
 		}
 	}
-	
+
 	_getLongLivedAuth() {
 		const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
 		const longLivedToken = HAScaleStorageService.get(keys.LONG_LIVED_TOKEN);
-		
+
 		if (!longLivedToken) {
 			throw new Error('No long-lived token found');
 		}
-		
+
 		return this.authManager.createLongLivedAuth(this.model.config.haUrl, longLivedToken);
 	}
 
@@ -165,13 +165,13 @@ class HAScaleConnectionService {
 				this.connection.close();
 				this.connection = null;
 			}
-			
+
 			if (!this.authManager.hasOAuth() && this.model.config.authMethod === HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH) {
 				HAScaleLogger.warn('Connection', 'No valid authentication tokens available');
 				HAScaleUtils.showNotification('error', 'Authentication lost. Please go to configuration and sign in again.');
 				return;
 			}
-			
+
 			try {
 				this.auth = await this._getAuth();
 				if (this.auth) {
@@ -180,13 +180,13 @@ class HAScaleConnectionService {
 				}
 			} catch (authError) {
 				HAScaleLogger.warn('Connection', 'Auth recreation failed, tokens may be invalid:', authError);
-				
+
 				if (this.model.config.authMethod === HAScaleConstants.CONFIG.AUTH_METHODS.OAUTH) {
 					this.authManager.clearAllAuth();
 				}
 				HAScaleUtils.showNotification('error', 'Authentication expired and refresh failed. Please go to configuration and sign in again.');
 			}
-			
+
 		} catch (error) {
 			HAScaleLogger.error('Connection', 'Error in auth error handler', error);
 			HAScaleUtils.showNotification('error', 'Authentication error occurred. Please check configuration.');
@@ -194,15 +194,15 @@ class HAScaleConnectionService {
 	}
 
 
-	_handleEntityUpdate(entity) {
+	_handleWeightEntityUpdate(entity) {
 		const newWeight = parseFloat(entity.state);
 		const isStable = entity.attributes?.is_stable === true;
-		
+
 		if (!isNaN(newWeight) && entity.attributes) {
 			HAScaleLogger.throttled('weight_update', 1000, () => {
 				HAScaleLogger.debug('Connection', `Weight update received: ${newWeight}g, stable: ${isStable}, entity: ${this.model.config.scaleEntityId}`);
 			});
-			
+
 			this.model.updateScaleData({
 				lastWeight: newWeight,
 				isStable: isStable,
@@ -212,6 +212,16 @@ class HAScaleConnectionService {
 			HAScaleLogger.throttled('invalid_entity', 5000, () => {
 				HAScaleLogger.warn('Connection', `Invalid entity data received from ${this.model.config.scaleEntityId}: state="${entity.state}", has_attributes=${!!entity.attributes}`);
 			});
+		}
+	}
+
+	_handleScannerEntityUpdate(entity) {
+		const state = entity.state.trim();
+
+		if (state && state !== '' && state != 'unknown' && state != 'unavailable') {
+			HAScaleLogger.debug('Connection', `Scanner update received: "${state}", entity: ${this.model.config.scannerEntityId}`);
+
+			this.model.updateScannerData(state);
 		}
 	}
 
@@ -227,15 +237,81 @@ class HAScaleConnectionService {
 		}
 
 		try {
-			this.unsubscribeEntities = window.HAWS.subscribeEntities(this.connection, (entities) => {
+			const entityIds = [this.model.config.scaleEntityId];
+
+			const scannerEntityId = this.model.config.scannerEntityId;
+			if (scannerEntityId && this.model.config.scannerEnabled) {
+				entityIds.push(scannerEntityId);
+			}
+
+			HAScaleLogger.info('Connection', `Creating collection subscription for entities: ${entityIds.join(', ')}`);
+
+			// Entity state change handler
+			const entityStateChanged = (state, event) => {
+				if (state === undefined) return null;
+
+				const entityId = event.data.entity_id;
+				const newState = event.data.new_state;
+
+				// Only process entities we care about
+				if (!entityIds.includes(entityId) || !newState) {
+					return null;
+				}
+
+				// Update our local state with the new entity state
+				return {
+					...state,
+					[entityId]: newState
+				};
+			};
+
+			// Fetch initial states for our specific entities
+			const fetchEntityStates = (conn) =>
+				conn.sendMessagePromise({
+					type: "get_states"
+				}).then(states => {
+					// Filter to only our entities
+					const filteredStates = {};
+					states.forEach(entity => {
+						if (entityIds.includes(entity.entity_id)) {
+							filteredStates[entity.entity_id] = entity;
+						}
+					});
+					return filteredStates;
+				});
+
+			// Subscribe to state_changed events for our entities
+			const subscribeUpdates = (conn, store) =>
+				conn.subscribeEvents(store.action(entityStateChanged), "state_changed");
+
+			// Create collection
+			this.entitiesCollection = window.HAWS.getCollection(
+				this.connection,
+				"_ha_scale_entities",
+				fetchEntityStates,
+				subscribeUpdates
+			);
+
+			// Subscribe to collection changes
+			this.unsubscribeEntities = this.entitiesCollection.subscribe((entities) => {
+				// Handle scale entity updates
 				const scaleEntity = entities[this.model.config.scaleEntityId];
 				if (scaleEntity) {
-					this._handleEntityUpdate(scaleEntity);
+					this._handleWeightEntityUpdate(scaleEntity);
+				}
+
+				// Handle scanner entity updates if configured and enabled
+				if (scannerEntityId && this.model.config.scannerEnabled) {
+					const scannerEntity = entities[scannerEntityId];
+					if (scannerEntity) {
+						this._handleScannerEntityUpdate(scannerEntity);
+					}
 				}
 			});
-			HAScaleLogger.debug('Connection', 'Successfully subscribed to entity changes');
+
+			HAScaleLogger.debug('Connection', `Successfully created collection subscription for ${entityIds.length} entities`);
 		} catch (error) {
-			HAScaleLogger.error('Connection', 'Error subscribing to entities', error);
+			HAScaleLogger.error('Connection', 'Error creating entity collection subscription', error);
 		}
 	}
 
@@ -249,7 +325,16 @@ class HAScaleConnectionService {
 				}
 				this.unsubscribeEntities = null;
 			}
-			
+
+			if (this.entitiesCollection) {
+				try {
+					// Collections don't need explicit cleanup, but clear reference
+					this.entitiesCollection = null;
+				} catch (error) {
+					HAScaleLogger.error('Connection', 'Error cleaning up entities collection', error);
+				}
+			}
+
 			if (this.connection) {
 				try {
 					this.connection.close();
@@ -258,9 +343,9 @@ class HAScaleConnectionService {
 				}
 				this.connection = null;
 			}
-			
+
 			this.auth = null;
-			
+
 			this.model.updateConnectionState({
 				isConnected: false,
 				connection: null,
@@ -281,14 +366,14 @@ class HAScaleInputService {
 
 	findTargetInput() {
 		const waitingInputs = this.view.inputManager.findWaitingInputs();
-		
+
 		if (waitingInputs.length > 0) {
 			const $input = waitingInputs[0];
 			const inputRef = HAScaleUtils.getInputReference($input);
 			HAScaleLogger.debug('InputService', `Found target input: ${inputRef} (${waitingInputs.length} waiting inputs total)`);
 			return $input;
 		}
-		
+
 		HAScaleLogger.debug('InputService', 'No waiting inputs found for scale data');
 		return null;
 	}
@@ -301,33 +386,33 @@ class HAScaleInputService {
 		if ($activeElement.hasClass('ha-scale-waiting')) {
 			return $activeElement;
 		}
-		
+
 		if ($activeElement.hasClass('ha-scale-fulfilled')) {
 			return null;
 		}
-		
+
 		if (!$activeElement.hasClass('ha-scale-auto-targeted')) {
 			$activeElement.addClass('ha-scale-auto-targeted');
-			
+
 			Grocy.Components.HomeAssistantScale.Controller.view.updateInputState(activeElement, 'waiting');
-			
+
 			return $activeElement;
 		}
-		
+
 		return null;
 	}
 
 	clearInput(input) {
 		const $input = $(input);
-		
+
 		this._clearOtherWaitingInputs($input);
-		
+
 		const controller = Grocy.Components.HomeAssistantScale.Controller;
 		if (controller?.model) {
 			controller.model.scaleData.lastStableWeight = null;
 			HAScaleLogger.debug('InputService', 'Reset lastStableWeight to allow same weight to trigger again');
 		}
-		
+
 		this.view.updateInputState(input[0], 'waiting');
 		$input.focus();
 	}
@@ -335,11 +420,11 @@ class HAScaleInputService {
 	_clearOtherWaitingInputs($targetInput) {
 		const waitingInputs = this.view.inputManager.findWaitingInputs();
 		const clearedCount = waitingInputs.filter($input => $input[0] !== $targetInput[0]).length;
-		
+
 		if (clearedCount > 0) {
 			HAScaleLogger.debug('InputService', `Clearing ${clearedCount} other waiting inputs`);
 		}
-		
+
 		waitingInputs.forEach($input => {
 			if ($input[0] !== $targetInput[0]) {
 				this.view.updateInputState($input[0], 'reset');
@@ -358,10 +443,10 @@ class HAScaleUnitService {
 		const $input = $(inputElement);
 		const inputId = $input.attr('id') || '';
 		const inputRef = HAScaleUtils.getInputReference($input);
-		
+
 		const result = this._detectUnit($input, inputId);
 		HAScaleLogger.debug('UnitService', `Unit detection for ${inputRef}: ${result.unit} (fallback: ${result.isFallback})`);
-		
+
 		return result;
 	}
 
@@ -376,7 +461,7 @@ class HAScaleUnitService {
 				}
 			}
 		}
-		
+
 		const $unitElement = $input.siblings('.input-group-text, .input-group-append .input-group-text');
 		if ($unitElement.length > 0) {
 			const unit = this._extractUnitText($unitElement);
@@ -384,7 +469,7 @@ class HAScaleUnitService {
 				return { unit, isFallback: false };
 			}
 		}
-		
+
 		const $inputGroup = $input.closest('.input-group');
 		if ($inputGroup.length > 0) {
 			const $unitInGroup = $inputGroup.find('.input-group-text, [id$="_unit"], [class*="unit"]');
@@ -393,7 +478,7 @@ class HAScaleUnitService {
 				return { unit, isFallback: false };
 			}
 		}
-		
+
 		const $quSelector = $('#qu_id');
 		if ($quSelector.length > 0) {
 			const $selectedOption = $quSelector.find('option:selected');
@@ -404,13 +489,13 @@ class HAScaleUnitService {
 				}
 			}
 		}
-		
+
 		return { unit: 'g', isFallback: true };
 	}
 
 	_extractUnitText($elements) {
 		if ($elements.length === 0) return null;
-		
+
 		for (let i = 0; i < $elements.length; i++) {
 			const text = $($elements[i]).text().trim().toLowerCase();
 			if (text && text.length > 0) {
@@ -424,15 +509,15 @@ class HAScaleUnitService {
 	convertFromGrams(weightInGrams, toUnit) {
 		const factor = this.conversionFactors[toUnit.toLowerCase()] || 1;
 		const converted = weightInGrams / factor;
-		
+
 		HAScaleLogger.debug('UnitService', `Converting ${weightInGrams}g to ${toUnit}: ${converted} (factor: ${factor})`);
-		
+
 		return converted;
 	}
 
 	getDecimalPrecision(targetInput) {
 		let maxDecimalPlaces = Grocy.UserSettings?.stock_decimal_places_amounts || this.config.DEFAULT_DECIMAL_PLACES;
-		
+
 		const stepAttr = $(targetInput).attr('step');
 		if (stepAttr && stepAttr.includes('.')) {
 			const stepDecimals = stepAttr.split('.')[1].length;
@@ -440,14 +525,14 @@ class HAScaleUnitService {
 				maxDecimalPlaces = stepDecimals;
 			}
 		}
-		
+
 		return Math.max(this.config.MIN_DECIMAL_PLACES, Math.min(maxDecimalPlaces, this.config.MAX_DECIMAL_PLACES));
 	}
 
 	formatWeight(weight, precision) {
 		const roundingFactor = Math.pow(10, precision);
 		const roundedWeight = Math.round(weight * roundingFactor) / roundingFactor;
-		
+
 		return roundedWeight.toLocaleString('en-US', {
 			minimumFractionDigits: 0,
 			maximumFractionDigits: precision

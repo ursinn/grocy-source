@@ -20,6 +20,8 @@ class HAScaleConstants {
 			STORAGE_KEYS: {
 				HA_URL: 'url',
 				SCALE_ENTITY_ID: 'entity_id',
+				SCANNER_ENTITY_ID: 'scanner_entity_id',
+				SCANNER_ENABLED: 'scanner_enabled',
 				DEBUG_MODE: 'debug',
 				OAUTH_STATE: 'oauth_state',
 				OAUTH_TOKENS: 'oauth_tokens',
@@ -66,7 +68,8 @@ class HAScaleConstants {
 			},
 
 			HOTKEYS: {
-				TRIGGER_SCALE: 'Alt+S'
+				TRIGGER_SCALE: 'Alt+S',
+				TOGGLE_SCANNER: 'Alt+W'
 			},
 
 			RESET_ACTIONS: {
@@ -110,6 +113,7 @@ class HAScaleConstants {
 				BUTTON_IDLE: 'btn-outline-secondary',
 				INPUT_FULFILLED: 'ha-scale-fulfilled',
 				INPUT_WAITING: 'ha-scale-waiting',
+				INPUT_SCANNER_WAITING: 'ha-scanner-waiting',
 				BOOTSTRAP_HIDDEN: 'd-none',
 				TOAST_SUCCESS: 'toast-success'
 			},
@@ -118,6 +122,7 @@ class HAScaleConstants {
 				URL_REQUIRED: 'Please enter the Home Assistant URL',
 				TOKEN_REQUIRED: 'Please enter the access token or sign in with Home Assistant',
 				ENTITY_REQUIRED: 'Please enter the scale entity ID (e.g. sensor.kitchen_scale)',
+				SCANNER_ENTITY_REQUIRED: 'Please enter the scanner entity ID (e.g. sensor.barcode_scanner)',
 				URL_INVALID: 'Please enter a valid Home Assistant URL (e.g., http://homeassistant.local:8123)',
 				OAUTH_SUCCESS: 'Successfully signed in with Home Assistant! Please enter your scale entity ID below to complete the setup.',
 				OAUTH_FAILED: 'Failed to exchange authorization code for token. Please try again.',
@@ -130,6 +135,9 @@ class HAScaleConstants {
 				SCALE_READING_CANCELLED: 'Scale reading cancelled',
 				NO_WEIGHT_INPUTS: 'No weight inputs found on this page',
 				WAITING_FOR_WEIGHT: 'Waiting for stable weight reading',
+				SCANNER_ENABLED: 'Scanner enabled - focus an input to scan',
+				SCANNER_DISABLED: 'Scanner disabled',
+				WAITING_FOR_SCAN: 'Waiting for barcode scan',
 				CONFIG_REQUIRED: 'Please configure Home Assistant connection first',
 				WEIGHT_PROCESSING_ERROR: 'Error processing weight from scale',
 				TOKEN_TOO_SHORT: 'Access token appears to be too short.',

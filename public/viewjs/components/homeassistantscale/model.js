@@ -3,6 +3,8 @@ class HAScaleModel {
 		this.config = {
 			haUrl: null,
 			scaleEntityId: null,
+			scannerEntityId: null,
+			scannerEnabled: false,
 			authMethod: null
 		};
 		this.authManager = new HAScaleAuthManager();
@@ -17,6 +19,9 @@ class HAScaleModel {
 			lastStableWeight: null,
 			isStable: false,
 			lastUpdate: null
+		};
+		this.scannerData = {
+			targetInput: null
 		};
 		this.observers = new Set();
 		this._debounceTimers = new Map();
@@ -70,12 +75,12 @@ class HAScaleModel {
 			HAScaleLogger.error('Model', 'Invalid scale data provided');
 			return;
 		}
-		
+
 		Object.assign(this.scaleData, {
 			...data,
 			lastUpdate: new Date()
 		});
-		
+
 		if (data.isStable && data.lastWeight !== null && !isNaN(data.lastWeight)) {
 			this._debounceNotification('stableWeight', () => {
 				this.scaleData.lastStableWeight = data.lastWeight;
@@ -85,8 +90,23 @@ class HAScaleModel {
 				});
 			}, HAScaleConstants.CONFIG.STABLE_WEIGHT_DEBOUNCE);
 		}
-		
+
 		this.notifyObservers('onScaleDataUpdated', this.scaleData);
+	}
+
+	updateScannerData(barcode) {
+		this.notifyObservers('onScannerDataUpdated', barcode);
+	}
+
+	setScannerWaiting(targetInput) {
+		this.scannerData.targetInput = targetInput;
+		targetInput.addClass(HAScaleConstants.CONFIG.CSS_CLASSES.INPUT_SCANNER_WAITING);
+	}
+
+	clearScannerWaiting(targetInput) {
+		this.scannerData.targetInput = null;
+
+		targetInput.removeClass(HAScaleConstants.CONFIG.CSS_CLASSES.INPUT_SCANNER_WAITING);
 	}
 
 	_debounceNotification(key, callback, delay) {
@@ -106,6 +126,8 @@ class HAScaleModel {
 			this.config = {
 				haUrl: HAScaleStorageService.get(keys.HA_URL) || null,
 				scaleEntityId: HAScaleStorageService.get(keys.SCALE_ENTITY_ID) || null,
+				scannerEntityId: HAScaleStorageService.get(keys.SCANNER_ENTITY_ID) || null,
+				scannerEnabled: HAScaleStorageService.get(keys.SCANNER_ENABLED) === 'true',
 				authMethod: HAScaleStorageService.get(keys.AUTH_METHOD) || null
 			};
 			return this.isConfigComplete();
@@ -118,16 +140,20 @@ class HAScaleModel {
 	saveConfiguration() {
 		try {
 			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
-			const { haUrl = '', scaleEntityId = '', authMethod = null } = this.config;
-			
+			const { haUrl = '', scaleEntityId = '', scannerEntityId = '', scannerEnabled = false, authMethod = null } = this.config;
+
 			const sanitizedConfig = {
 				haUrl: HAScaleUtils.sanitizeUrl(haUrl),
 				scaleEntityId: HAScaleUtils.sanitizeEntityId(scaleEntityId),
+				scannerEntityId: HAScaleUtils.sanitizeEntityId(scannerEntityId),
+				scannerEnabled: Boolean(scannerEnabled),
 				authMethod: authMethod
 			};
-			
+
 			HAScaleStorageService.set(keys.HA_URL, sanitizedConfig.haUrl);
 			HAScaleStorageService.set(keys.SCALE_ENTITY_ID, sanitizedConfig.scaleEntityId);
+			HAScaleStorageService.set(keys.SCANNER_ENTITY_ID, sanitizedConfig.scannerEntityId);
+			HAScaleStorageService.set(keys.SCANNER_ENABLED, sanitizedConfig.scannerEnabled.toString());
 			HAScaleStorageService.set(keys.AUTH_METHOD, sanitizedConfig.authMethod);
 		} catch (error) {
 			HAScaleLogger.error('Config', 'Error saving configuration:', error);
@@ -137,32 +163,32 @@ class HAScaleModel {
 	isConfigComplete() {
 		return !!(this.config.haUrl && this.config.scaleEntityId && this.config.authMethod && this.hasValidAuth());
 	}
-	
+
 	hasValidAuth() {
 		const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
-		
+
 		if (this.config.authMethod === authMethods.OAUTH) {
 			return this.authManager.hasOAuth();
 		} else if (this.config.authMethod === authMethods.LONG_LIVED) {
 			return this.authManager.hasLongLived();
 		}
-		
+
 		return false;
 	}
-	
+
 	setAuthMethod(method, authData) {
 		const authMethods = HAScaleConstants.CONFIG.AUTH_METHODS;
-		
+
 		this.config.authMethod = method;
-		
+
 		if (method === authMethods.LONG_LIVED && authData) {
 			const keys = HAScaleConstants.CONFIG.STORAGE_KEYS;
 			HAScaleStorageService.set(keys.LONG_LIVED_TOKEN, authData);
 		}
-		
+
 		this.saveConfiguration();
 	}
-	
+
 	clearAllAuth() {
 		this.authManager.clearAllAuth();
 		this.config.authMethod = null;
@@ -172,7 +198,8 @@ class HAScaleModel {
 		return {
 			config: { ...this.config },
 			connectionState: { ...this.connectionState },
-			scaleData: { ...this.scaleData }
+			scaleData: { ...this.scaleData },
+			scannerData: { ...this.scannerData }
 		};
 	}
 }
