@@ -179,9 +179,17 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 		$waitingInput.val(barcode);
 		$waitingInput.trigger('keyup');
 
-		// Trigger Tab to move to next field
+		// Move focus to next input field
 		setTimeout(() => {
-			$waitingInput.trigger($.Event('keydown', { keyCode: 9, which: 9 }));
+			// Find next focusable input and move focus there
+			const focusableElements = $('input:visible:enabled, select:visible:enabled, textarea:visible:enabled');
+			const currentIndex = focusableElements.index($waitingInput[0]);
+			const nextElement = focusableElements.eq(currentIndex + 1);
+
+			if (nextElement.length > 0) {
+				nextElement.focus();
+				HAHelperLogger.debug('ScannerModule', `Focus moved to next input: ${HAHelperUtils.getInputReference(nextElement)}`);
+			}
 		}, 50);
 
 		// Clear scanner waiting state
