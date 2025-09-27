@@ -241,17 +241,17 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 		$targetInput.trigger('change');
 		$targetInput.blur();
 
-		setTimeout(() => {
-			// Find next focusable input and move focus there
-			const focusableElements = $('input:visible:enabled, select:visible:enabled, textarea:visible:enabled');
-			const currentIndex = focusableElements.index($targetInput[0]);
-			const nextElement = focusableElements.eq(currentIndex + 1);
+		// setTimeout(() => {
+		// 	// Find next focusable input and move focus there
+		// 	const focusableElements = $('input:visible:enabled, select:visible:enabled, textarea:visible:enabled');
+		// 	const currentIndex = focusableElements.index($targetInput[0]);
+		// 	const nextElement = focusableElements.eq(currentIndex + 1);
 
-			if (nextElement.length > 0) {
-				nextElement.focus();
-				HAHelperLogger.debug('ScaleModule', `Focus moved to next input: ${HAHelperUtils.getInputReference(nextElement)}`);
-			}
-		}, 50);
+		// 	if (nextElement.length > 0) {
+		// 		nextElement.focus();
+		// 		HAHelperLogger.debug('ScaleModule', `Focus moved to next input: ${HAHelperUtils.getInputReference(nextElement)}`);
+		// 	}
+		// }, 50);
 
 		this.view.updateInputState($targetInput[0], 'fulfilled');
 

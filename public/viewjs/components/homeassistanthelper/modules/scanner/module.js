@@ -181,18 +181,18 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 		$waitingInput.trigger('change');
 		$waitingInput.blur();
 
-		// Move focus to next input field
-		setTimeout(() => {
-			// Find next focusable input and move focus there
-			const focusableElements = $('input:visible:enabled, select:visible:enabled, textarea:visible:enabled');
-			const currentIndex = focusableElements.index($waitingInput[0]);
-			const nextElement = focusableElements.eq(currentIndex + 1);
+		// // Move focus to next input field
+		// setTimeout(() => {
+		// 	// Find next focusable input and move focus there
+		// 	const focusableElements = $('input:visible:enabled, select:visible:enabled, textarea:visible:enabled');
+		// 	const currentIndex = focusableElements.index($waitingInput[0]);
+		// 	const nextElement = focusableElements.eq(currentIndex + 1);
 
-			if (nextElement.length > 0) {
-				nextElement.focus();
-				HAHelperLogger.debug('ScannerModule', `Focus moved to next input: ${HAHelperUtils.getInputReference(nextElement)}`);
-			}
-		}, 50);
+		// 	if (nextElement.length > 0) {
+		// 		nextElement.focus();
+		// 		HAHelperLogger.debug('ScannerModule', `Focus moved to next input: ${HAHelperUtils.getInputReference(nextElement)}`);
+		// 	}
+		// }, 50);
 
 		// Clear scanner waiting state
 		this._clearScannerWaiting($waitingInput);
