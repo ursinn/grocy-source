@@ -313,7 +313,6 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 
 		if (!barcode || barcode === 'unknown' || barcode === 'unavailable') {
 			HAHelperLogger.debug('ScannerModule', `Invalid scanner state: ${barcode}`);
-			HAHelperUtils.showNotification('error', this.config.MESSAGES.PROCESSING_ERROR, { timeOut: this.config.TIMEOUTS.NOTIFICATION_MEDIUM });
 			return;
 		}
 

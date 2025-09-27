@@ -179,9 +179,22 @@ class HAHelperModuleRegistry {
 
 	getModuleConfigs() {
 		const configs = {};
-		for (const module of this.modules.values()) {
-			configs[module.id] = module.getConfig();
+		const savedConfig = this.core.model.config;
+
+		// Start with saved configs for all modules, then override with current enabled module configs
+		for (const [moduleId] of this.moduleClasses.entries()) {
+			// Get saved config if it exists
+			if (savedConfig.modules && savedConfig.modules[moduleId]) {
+				configs[moduleId] = savedConfig.modules[moduleId];
+			}
+
+			// Override with current config if module is enabled
+			const enabledModule = this.modules.get(moduleId);
+			if (enabledModule) {
+				configs[moduleId] = enabledModule.getConfig();
+			}
 		}
+
 		return configs;
 	}
 
