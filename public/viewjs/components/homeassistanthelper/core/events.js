@@ -1,4 +1,4 @@
-class HAScaleEventManager {
+class HAHelperEventManager {
 	constructor() {
 		this.handlers = new Map();
 		this.globalHandlers = new Set();
@@ -53,7 +53,7 @@ class HAScaleEventManager {
 	}
 }
 
-class HAScaleErrorHandler {
+class HAHelperErrorHandler {
 	static async withRetry(operation, options = {}) {
 		const {
 			maxRetries = 3,
@@ -73,7 +73,7 @@ class HAScaleErrorHandler {
 				lastError = error;
 				
 				if (attempt === maxRetries || !retryCondition(error)) {
-					HAScaleLogger.error('ErrorHandler', `${context} failed after ${attempt + 1} attempts:`, error);
+					HAHelperLogger.error('ErrorHandler', `${context} failed after ${attempt + 1} attempts:`, error);
 					break;
 				}
 				
@@ -81,7 +81,7 @@ class HAScaleErrorHandler {
 					? retryDelay * Math.pow(2, attempt)
 					: retryDelay;
 				
-				HAScaleLogger.warn('ErrorHandler', `${context} failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+				HAHelperLogger.warn('ErrorHandler', `${context} failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
 				onRetry(error, attempt + 1);
 				
 				await new Promise(resolve => setTimeout(resolve, delay));
@@ -92,19 +92,19 @@ class HAScaleErrorHandler {
 	}
 
 	static handleError(error, context = 'Unknown', showNotification = null) {
-		HAScaleLogger.error('ErrorHandler', `${context} error:`, error);
+		HAHelperLogger.error('ErrorHandler', `${context} error:`, error);
 		
 		if (error.name === 'NetworkError' || error.message.includes('fetch')) {
 			if (showNotification) {
-				showNotification('error', HAScaleConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
+				showNotification('error', HAHelperConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
 			}
 		} else if (error.message.includes('auth') || error.message.includes('token')) {
 			if (showNotification) {
-				showNotification('error', HAScaleConstants.CONFIG.MESSAGES.AUTH_FAILED);
+				showNotification('error', HAHelperConstants.CONFIG.MESSAGES.AUTH_FAILED);
 			}
 		} else {
 			if (showNotification) {
-				showNotification('error', HAScaleConstants.CONFIG.MESSAGES.VALIDATION_FAILED);
+				showNotification('error', HAHelperConstants.CONFIG.MESSAGES.VALIDATION_FAILED);
 			}
 		}
 		
@@ -129,7 +129,7 @@ class HAScaleErrorHandler {
 			message.includes('timeout') ||
 			message.includes('ECONNRESET') ||
 			message.includes('ENOTFOUND') ||
-			(error.status >= HAScaleConstants.CONFIG.HTTP_STATUS.SERVER_ERROR_MIN && error.status < HAScaleConstants.CONFIG.HTTP_STATUS.SERVER_ERROR_MAX)
+			(error.status >= HAHelperConstants.CONFIG.HTTP_STATUS.SERVER_ERROR_MIN && error.status < HAHelperConstants.CONFIG.HTTP_STATUS.SERVER_ERROR_MAX)
 		);
 	}
 }

@@ -1,13 +1,13 @@
-class HAScaleStorageService {
+class HAHelperStorageService {
 	static _getKey(key) {
-		return `${HAScaleConstants.CONFIG.STORAGE_PREFIX}.${key}`;
+		return `${HAHelperConstants.CONFIG.STORAGE_PREFIX}.${key}`;
 	}
 
 	static get(key) {
 		try {
 			return localStorage.getItem(this._getKey(key)) || null;
 		} catch (error) {
-			HAScaleLogger.error('Storage', 'Error reading from storage:', error);
+			HAHelperLogger.error('Storage', 'Error reading from storage:', error);
 			return null;
 		}
 	}
@@ -20,7 +20,7 @@ class HAScaleStorageService {
 				localStorage.setItem(this._getKey(key), value);
 			}
 		} catch (error) {
-			HAScaleLogger.error('Storage', 'Error writing to storage:', error);
+			HAHelperLogger.error('Storage', 'Error writing to storage:', error);
 		}
 	}
 
@@ -28,7 +28,7 @@ class HAScaleStorageService {
 		try {
 			localStorage.removeItem(this._getKey(key));
 		} catch (error) {
-			HAScaleLogger.error('Storage', 'Error removing from storage:', error);
+			HAHelperLogger.error('Storage', 'Error removing from storage:', error);
 		}
 	}
 
@@ -37,7 +37,7 @@ class HAScaleStorageService {
 			const value = this.get(key);
 			return value ? JSON.parse(value) : null;
 		} catch (error) {
-			HAScaleLogger.error('Storage', 'Error parsing JSON from storage:', error);
+			HAHelperLogger.error('Storage', 'Error parsing JSON from storage:', error);
 			return null;
 		}
 	}
@@ -50,12 +50,12 @@ class HAScaleStorageService {
 				this.set(key, JSON.stringify(value));
 			}
 		} catch (error) {
-			HAScaleLogger.error('Storage', 'Error storing JSON to storage:', error);
+			HAHelperLogger.error('Storage', 'Error storing JSON to storage:', error);
 		}
 	}
 }
 
-class HAScaleLogger {
+class HAHelperLogger {
 	static LOG_LEVELS = {
 		ERROR: 0,
 		WARN: 1,
@@ -80,12 +80,12 @@ class HAScaleLogger {
 	static setLevel(level) {
 		if (level >= this.LOG_LEVELS.ERROR && level <= this.LOG_LEVELS.DEBUG) {
 			this._currentLevel = level;
-			HAScaleStorageService.set('log_level', level.toString());
+			HAHelperStorageService.set('log_level', level.toString());
 		}
 	}
 	
 	static loadLevel() {
-		const storedLevel = HAScaleStorageService.get('log_level');
+		const storedLevel = HAHelperStorageService.get('log_level');
 		if (storedLevel) {
 			this._currentLevel = parseInt(storedLevel);
 		}
@@ -94,10 +94,10 @@ class HAScaleLogger {
 	static _log(level, category, message, ...args) {
 		if (level > this.currentLevel) return;
 		
-		const timestamp = new Date().toISOString().substring(HAScaleConstants.CONFIG.LOGGING.TIMESTAMP_START, HAScaleConstants.CONFIG.LOGGING.TIMESTAMP_END);
+		const timestamp = new Date().toISOString().substring(HAHelperConstants.CONFIG.LOGGING.TIMESTAMP_START, HAHelperConstants.CONFIG.LOGGING.TIMESTAMP_END);
 		const levelName = this.LEVEL_NAMES[level];
-		const levelPart = `[${levelName}]`.padEnd(HAScaleConstants.CONFIG.LOGGING.LEVEL_NAME_PADDING);
-		const prefix = `[${timestamp}] ${levelPart} HA Scale ${category}:`;
+		const levelPart = `[${levelName}]`.padEnd(HAHelperConstants.CONFIG.LOGGING.LEVEL_NAME_PADDING);
+		const prefix = `[${timestamp}] ${levelPart} HA Helper ${category}:`;
 		
 		switch (level) {
 			case this.LOG_LEVELS.ERROR:
@@ -142,7 +142,7 @@ class HAScaleLogger {
 	}
 }
 
-class HAScaleUtils {
+class HAHelperUtils {
 	static getInputReference($input) {
 		if (!$input || !$input.length) return 'null-input';
 		
@@ -186,31 +186,31 @@ class HAScaleUtils {
 			const urlObj = new URL(url);
 			if (!['http:', 'https:'].includes(urlObj.protocol) || 
 				urlObj.hostname.includes('<') || urlObj.hostname.includes('>')) {
-				if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.URL_INVALID);
+				if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.URL_INVALID);
 				return false;
 			}
-			if (urlObj.port && (parseInt(urlObj.port) < HAScaleConstants.CONFIG.VALIDATION.PORT_MIN || parseInt(urlObj.port) > HAScaleConstants.CONFIG.VALIDATION.PORT_MAX)) {
-				if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.URL_INVALID);
+			if (urlObj.port && (parseInt(urlObj.port) < HAHelperConstants.CONFIG.VALIDATION.PORT_MIN || parseInt(urlObj.port) > HAHelperConstants.CONFIG.VALIDATION.PORT_MAX)) {
+				if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.URL_INVALID);
 				return false;
 			}
 			return true;
 		} catch (error) {
-			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.URL_INVALID);
+			if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.URL_INVALID);
 			return false;
 		}
 	}
 
 	static validateToken(token, showNotification) {
-		if (token.length < HAScaleConstants.CONFIG.VALIDATION.TOKEN_MIN_LENGTH) {
-			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.TOKEN_TOO_SHORT);
+		if (token.length < HAHelperConstants.CONFIG.VALIDATION.TOKEN_MIN_LENGTH) {
+			if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.TOKEN_TOO_SHORT);
 			return false;
 		}
-		if (token.length > HAScaleConstants.CONFIG.VALIDATION.TOKEN_MAX_LENGTH) {
-			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.TOKEN_TOO_LONG);
+		if (token.length > HAHelperConstants.CONFIG.VALIDATION.TOKEN_MAX_LENGTH) {
+			if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.TOKEN_TOO_LONG);
 			return false;
 		}
 		if (!/^[a-zA-Z0-9.\-_]+$/.test(token)) {
-			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.TOKEN_INVALID_CHARS);
+			if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.TOKEN_INVALID_CHARS);
 			return false;
 		}
 		return true;
@@ -218,16 +218,16 @@ class HAScaleUtils {
 
 	static validateEntityId(entityId, showNotification) {
 		if (!/^[a-z][a-z0-9_]*\.[a-z0-9_]+$/.test(entityId)) {
-			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.ENTITY_INVALID_FORMAT);
+			if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.ENTITY_INVALID_FORMAT);
 			return false;
 		}
-		if (entityId.length > HAScaleConstants.CONFIG.VALIDATION.ENTITY_MAX_LENGTH) {
-			if (showNotification) showNotification('error', HAScaleConstants.CONFIG.MESSAGES.ENTITY_TOO_LONG);
+		if (entityId.length > HAHelperConstants.CONFIG.VALIDATION.ENTITY_MAX_LENGTH) {
+			if (showNotification) showNotification('error', HAHelperConstants.CONFIG.MESSAGES.ENTITY_TOO_LONG);
 			return false;
 		}
 		const reservedPrefixes = ['script.', 'automation.', 'scene.'];
 		if (reservedPrefixes.some(prefix => entityId.startsWith(prefix))) {
-			if (showNotification) showNotification('warning', HAScaleConstants.CONFIG.MESSAGES.ENTITY_RESERVED_DOMAIN);
+			if (showNotification) showNotification('warning', HAHelperConstants.CONFIG.MESSAGES.ENTITY_RESERVED_DOMAIN);
 		}
 		return true;
 	}
@@ -239,8 +239,8 @@ class HAScaleUtils {
 	static showNotification(type, message, options = {}) {
 		if (typeof toastr !== 'undefined') {
 			const defaultOptions = {
-				timeOut: HAScaleConstants.CONFIG.TIMEOUTS.NOTIFICATION_DEFAULT,
-				positionClass: HAScaleConstants.CONFIG.NOTIFICATION.POSITION,
+				timeOut: HAHelperConstants.CONFIG.TIMEOUTS.NOTIFICATION_DEFAULT,
+				positionClass: HAHelperConstants.CONFIG.NOTIFICATION.POSITION,
 				...options
 			};
 			toastr[type](message, '', defaultOptions);
