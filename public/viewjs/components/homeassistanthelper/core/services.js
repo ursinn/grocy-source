@@ -285,7 +285,7 @@ class HAHelperConnectionService {
 			const unsubscribe = collection.subscribe((entities) => {
 				// Handle entity updates
 				if (Object.keys(entities).length > 0) {
-					HAHelperLogger.debug('Connection', `Collection callback triggered with entities: ${Object.keys(entities).join(', ')}`);
+					HAHelperLogger.trace('Connection', `Collection callback triggered with entities: ${Object.keys(entities).join(', ')}`);
 					callback(entities);
 				}
 			});

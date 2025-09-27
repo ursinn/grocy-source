@@ -60,14 +60,16 @@ class HAHelperLogger {
 		ERROR: 0,
 		WARN: 1,
 		INFO: 2,
-		DEBUG: 3
+		DEBUG: 3,
+		TRACE: 4
 	};
 
 	static LEVEL_NAMES = {
 		[this.LOG_LEVELS.ERROR]: 'ERROR',
 		[this.LOG_LEVELS.WARN]: 'WARN',
 		[this.LOG_LEVELS.INFO]: 'INFO',
-		[this.LOG_LEVELS.DEBUG]: 'DEBUG'
+		[this.LOG_LEVELS.DEBUG]: 'DEBUG',
+		[this.LOG_LEVELS.TRACE]: 'TRACE'
 	};
 
 	static _throttleState = new Map();
@@ -78,7 +80,7 @@ class HAHelperLogger {
 	}
 	
 	static setLevel(level) {
-		if (level >= this.LOG_LEVELS.ERROR && level <= this.LOG_LEVELS.DEBUG) {
+		if (level >= this.LOG_LEVELS.ERROR && level <= this.LOG_LEVELS.TRACE) {
 			this._currentLevel = level;
 			HAHelperStorageService.set('log_level', level.toString());
 		}
@@ -112,6 +114,9 @@ class HAHelperLogger {
 			case this.LOG_LEVELS.DEBUG:
 				console.log(prefix, message, ...args);
 				break;
+			case this.LOG_LEVELS.TRACE:
+				console.log(prefix, message, ...args);
+				break;
 		}
 	}
 	
@@ -129,6 +134,10 @@ class HAHelperLogger {
 	
 	static debug(category, message, ...args) {
 		this._log(this.LOG_LEVELS.DEBUG, category, message, ...args);
+	}
+
+	static trace(category, message, ...args) {
+		this._log(this.LOG_LEVELS.TRACE, category, message, ...args);
 	}
 	
 	static throttled(key, intervalMs, logCallback) {

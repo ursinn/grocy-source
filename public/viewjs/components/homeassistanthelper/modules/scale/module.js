@@ -167,7 +167,8 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 
 		// Handle form resets
 		this._addEventHandler($(document), 'reset', 'form', () => {
-			setTimeout(() => this.view.resetAllInputs('form-reset'), HAHelperScaleConstants.CONFIG.FORM_RESET_DELAY || 1000);
+			HAHelperLogger.debug('ScaleModule', 'Form reset detected, clearing all scale states');
+			this.view.resetAllInputs('form-reset'), HAHelperScaleConstants.CONFIG.FORM_RESET_DELAY;
 		});
 
 		this.view.setupSuccessDetection();
@@ -448,7 +449,7 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 
 		// Subscribe to the scale entity using the new subscription API
 		this.entityUnsubscribe = this.core.connectionService.subscribe([scaleEntityId], (entities) => {
-			HAHelperLogger.debug('ScaleModule', `Scale module callback triggered with entities: ${Object.keys(entities).join(', ')}`);
+			HAHelperLogger.trace('ScaleModule', `Scale module callback triggered with entities: ${Object.keys(entities).join(', ')}`);
 			const scaleEntity = entities[scaleEntityId];
 
 			if (scaleEntity) {
@@ -458,7 +459,7 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 					return;
 				}
 
-				HAHelperLogger.debug('ScaleModule', `Processing scale entity update: ${scaleEntity.state}`);
+				HAHelperLogger.trace('ScaleModule', `Processing scale entity update: ${scaleEntity.state}`);
 				this.handleWeightEntityUpdate(scaleEntity);
 			} else {
 				HAHelperLogger.debug('ScaleModule', `No entity found for ${scaleEntityId} in callback`);
@@ -492,7 +493,7 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 		};
 
 		this.updateScaleData(scaleData);
-		HAHelperLogger.debug('ScaleModule', `Scale entity update: ${weight}${entity.attributes?.unit_of_measurement || ''} (stable: ${isStable})`);
+		HAHelperLogger.trace('ScaleModule', `Scale entity update: ${weight}${entity.attributes?.unit_of_measurement || ''} (stable: ${isStable})`);
 	}
 
 	async validateConfig(config, validateEntity) {
