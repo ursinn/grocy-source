@@ -443,11 +443,21 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 
 		HAHelperLogger.debug('ScaleModule', `About to subscribe to entity: ${scaleEntityId}`);
 
+		// Track if this is the first update (initial state) to filter it out
+		let isFirstUpdate = true;
+
 		// Subscribe to the scale entity using the new subscription API
 		this.entityUnsubscribe = this.core.connectionService.subscribe([scaleEntityId], (entities) => {
 			HAHelperLogger.debug('ScaleModule', `Scale module callback triggered with entities: ${Object.keys(entities).join(', ')}`);
 			const scaleEntity = entities[scaleEntityId];
+
 			if (scaleEntity) {
+				if (isFirstUpdate) {
+					HAHelperLogger.debug('ScaleModule', `Ignoring initial entity state: ${scaleEntity.state}`);
+					isFirstUpdate = false;
+					return;
+				}
+
 				HAHelperLogger.debug('ScaleModule', `Processing scale entity update: ${scaleEntity.state}`);
 				this.handleWeightEntityUpdate(scaleEntity);
 			} else {

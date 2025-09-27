@@ -295,11 +295,21 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 
 		HAHelperLogger.debug('ScannerModule', `About to subscribe to entity: ${scannerEntityId}`);
 
+		// Track if this is the first update (initial state) to filter it out
+		let isFirstUpdate = true;
+
 		// Subscribe to the scanner entity using the new subscription API
 		this.entityUnsubscribe = this.core.connectionService.subscribe([scannerEntityId], (entities) => {
 			HAHelperLogger.debug('ScannerModule', `Scanner module callback triggered with entities: ${Object.keys(entities).join(', ')}`);
 			const scannerEntity = entities[scannerEntityId];
+
 			if (scannerEntity) {
+				if (isFirstUpdate) {
+					HAHelperLogger.debug('ScannerModule', `Ignoring initial entity state: ${scannerEntity.state}`);
+					isFirstUpdate = false;
+					return;
+				}
+
 				HAHelperLogger.debug('ScannerModule', `Processing scanner entity update: ${scannerEntity.state}`);
 				this.handleScannerEntityUpdate(scannerEntity);
 			} else {
