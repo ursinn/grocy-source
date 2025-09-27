@@ -237,9 +237,9 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 		const formattedWeight = this.core.unitService.formatWeight(convertedWeight, precision);
 
 		$targetInput.val(formattedWeight);
-		$targetInput.trigger('keyup');
-		$targetInput.trigger('change');
+		//$targetInput.trigger('change');
 		$targetInput.blur();
+		$targetInput.focus();
 
 		// setTimeout(() => {
 		// 	// Find next focusable input and move focus there

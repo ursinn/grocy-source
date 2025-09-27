@@ -175,11 +175,9 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 			return;
 		}
 
-		// Fill the input with barcode data
 		$waitingInput.val(barcode);
-		$waitingInput.trigger('keyup');
-		$waitingInput.trigger('change');
 		$waitingInput.blur();
+		$waitingInput.focus();
 
 		// // Move focus to next input field
 		// setTimeout(() => {
