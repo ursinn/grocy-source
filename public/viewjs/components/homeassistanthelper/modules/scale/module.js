@@ -238,6 +238,8 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 
 		$targetInput.val(formattedWeight);
 		$targetInput.trigger('keyup');
+		$targetInput.trigger('change');
+		$targetInput.blur();
 
 		setTimeout(() => {
 			// Find next focusable input and move focus there
