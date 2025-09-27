@@ -180,7 +180,7 @@ $('#container_scanner').on('keydown', function(e)
 	}
 });
 
-$('#gross_weight').on('input', function()
+$('#gross_weight').on('input blur change', function()
 {
 	validateGrossWeight();
 	calculateNetWeight();
