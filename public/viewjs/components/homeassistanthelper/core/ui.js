@@ -51,7 +51,7 @@ class HAHelperAuthUIManager {
 			case this.authStates.AUTHENTICATED:
 				elements.authStatus.removeClass('d-none');
 				elements.authMethodSelection.removeClass('d-none');
-				
+
 				if (config.authMethod === authMethods.OAUTH) {
 					elements.authMethodDisplay.text('OAuth Authentication Active');
 					elements.oauthAuthStatus.removeClass('d-none');
@@ -278,7 +278,7 @@ class HAHelperView {
 
 	initialize() {
 		if (this.initialized) return;
-		
+
 		this.styleManager.addStyles();
 		this.addConfigurationUI();
 		this.initialized = true;
@@ -293,7 +293,7 @@ class HAHelperView {
 		if (cached && (Date.now() - cached.timestamp) < this.config.CACHE_TTL) {
 			return cached.element;
 		}
-		
+
 		const $element = $(selector);
 		this._cache.set(selector, {
 			element: $element,
@@ -308,9 +308,9 @@ class HAHelperView {
 
 	cleanup() {
 		this.eventManager.cleanup();
-		
+
 		this._clearCache();
-		
+
 		this.initialized = false;
 	}
 
@@ -323,7 +323,7 @@ class HAHelperView {
 		if (nightModeItem.length > 0) {
 			nightModeItem.before(HAHelperTemplateGenerator.generateMenuButton());
 		}
-		
+
 		this.addConfigModal();
 	}
 
@@ -381,27 +381,27 @@ class HAHelperView {
 
 	_setupConfigEventHandlers() {
 		const elements = this.authUIManager._getModalElements();
-		
+
 		this.eventManager.addHandler(elements.configSave, 'click', async () => {
 			HAHelperLogger.debug('UI', 'Save & Test button clicked');
-			
+
 			const controller = Grocy.Components.HomeAssistantHelper.Controller;
 			if (!controller) {
 				HAHelperUtils.showNotification('error', 'Controller not available');
 				return;
 			}
-			
+
 			const config = controller.model.config;
 			if (!config.haUrl) {
 				HAHelperUtils.showNotification('error', 'Please enter Home Assistant URL first');
 				return;
 			}
-			
+
 			if (!controller.model.hasValidAuth()) {
 				HAHelperUtils.showNotification('error', 'Please complete authentication first');
 				return;
 			}
-			
+
 			const haUrl = HAHelperUtils.sanitizeUrl(elements.urlInput.val());
 
 			if (!haUrl) {
@@ -442,10 +442,17 @@ class HAHelperView {
 
 				// Create a simpler validator interface for modules
 				const validateEntity = async (entityId) => {
+					// Get the auth token for validation
+					let authData = null;
+					if (controller.model.config.authMethod === HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED) {
+						authData = HAHelperStorageService.get(HAHelperConstants.CONFIG.STORAGE_KEYS.LONG_LIVED_TOKEN);
+					}
+
 					return await this.validateEntityWithAuth({
 						haUrl: haUrl,
 						entityId: entityId, // Generic entity ID parameter
-						authMethod: controller.model.config.authMethod
+						authMethod: controller.model.config.authMethod,
+						authData: authData
 					});
 				};
 
@@ -468,13 +475,13 @@ class HAHelperView {
 				};
 
 				controller.model.updateConfig(configToSave);
-				
+
 				elements.configSave.html('<i class="fa-solid fa-spinner fa-spin"></i> Testing...');
-				
+
 				HAHelperLogger.info('UI', `Testing connection: ${haUrl}`);
-				
+
 				const connectionSuccess = await controller.connectionService.connect();
-				
+
 				if (connectionSuccess) {
 					HAHelperUtils.showNotification('success', 'Configuration saved and tested successfully!');
 					elements.modal.modal('hide');
@@ -488,21 +495,21 @@ class HAHelperView {
 				elements.configSave.prop('disabled', false).html('Save & Test');
 			}
 		});
-		
+
 		this.eventManager.addHandler(elements.oauthSigninBtn, 'click', async () => {
 			const rawUrl = elements.urlInput.val();
 			const haUrl = HAHelperUtils.sanitizeUrl(rawUrl);
 			if (!HAHelperUtils.validateUrl(haUrl, HAHelperUtils.showNotification)) {
 				return;
 			}
-			
+
 			HAHelperStorageService.set(HAHelperConstants.CONFIG.STORAGE_KEYS.HA_URL, haUrl);
-			
+
 			try {
 				elements.oauthSigninBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Signing in...');
-				
+
 				await this.authManager.createOAuthAuth(haUrl);
-				
+
 				const controller = Grocy.Components.HomeAssistantHelper.Controller;
 				if (controller) {
 					controller.model.setAuthMethod(HAHelperConstants.CONFIG.AUTH_METHODS.OAUTH, null);
@@ -511,7 +518,7 @@ class HAHelperView {
 						authMethod: HAHelperConstants.CONFIG.AUTH_METHODS.OAUTH
 					});
 				}
-				
+
 				elements.oauthAuthStatus.removeClass('d-none');
 				HAHelperUtils.showNotification('success', HAHelperConstants.CONFIG.MESSAGES.OAUTH_SUCCESS);
 				this.authUIManager.openModalForEntityConfig();
@@ -522,27 +529,27 @@ class HAHelperView {
 				elements.oauthSigninBtn.prop('disabled', false).html('<i class="fa-solid fa-home"></i> Sign in with Home Assistant');
 			}
 		});
-		
+
 		this.eventManager.addHandler(elements.longLivedBtn, 'click', () => {
 			this.authUIManager.showLongLivedTokenInput();
 		});
-		
+
 		this.eventManager.addHandler(elements.tokenValidateBtn, 'click', async () => {
 			const rawUrl = elements.urlInput.val();
 			const haUrl = HAHelperUtils.sanitizeUrl(rawUrl);
 			const token = elements.tokenField.val();
-			
+
 			if (!haUrl || !HAHelperUtils.validateUrl(haUrl, HAHelperUtils.showNotification)) {
 				return;
 			}
-			
+
 			if (!token || !HAHelperUtils.validateToken(token, HAHelperUtils.showNotification)) {
 				return;
 			}
-			
+
 			try {
 				elements.tokenValidateBtn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Saving...');
-				
+
 				const controller = Grocy.Components.HomeAssistantHelper.Controller;
 				if (controller) {
 					controller.model.setAuthMethod(HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED, token);
@@ -551,7 +558,7 @@ class HAHelperView {
 						authMethod: HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED
 					});
 				}
-				
+
 				elements.longLivedAuthStatus.removeClass('d-none');
 				HAHelperUtils.showNotification('success', 'Long-lived token saved successfully!');
 			} catch (error) {
@@ -561,7 +568,7 @@ class HAHelperView {
 				elements.tokenValidateBtn.prop('disabled', false).html('<i class="fa-solid fa-check"></i> Save Token');
 			}
 		});
-		
+
 		this.eventManager.addHandler(elements.logoutBtn, 'click', () => {
 			const controller = Grocy.Components.HomeAssistantHelper.Controller;
 			if (controller) {
@@ -572,12 +579,12 @@ class HAHelperView {
 					authMethod: null
 				});
 			}
-			
+
 			elements.tokenField.val('');
-			
+
 			HAHelperUtils.showNotification('info', HAHelperConstants.CONFIG.MESSAGES.LOGOUT_SUCCESS);
 		});
-		
+
 		this.eventManager.addHandler(elements.logLevelSelect, 'change', (e) => {
 			const newLevel = parseInt(e.target.value);
 			HAHelperLogger.setLevel(newLevel);
@@ -691,10 +698,10 @@ Setting('HOMEASSISTANT_HELPER_MODULES_CONFIG', '${JSON.stringify(moduleConfigs).
 
 	async validateEntityWithAuth(config) {
 		const authMethods = HAHelperConstants.CONFIG.AUTH_METHODS;
-		
+
 		try {
 			let auth;
-			
+
 			if (config.authMethod === authMethods.OAUTH) {
 				try {
 					auth = await this.authManager.createOAuthAuth(config.haUrl);
@@ -704,13 +711,13 @@ Setting('HOMEASSISTANT_HELPER_MODULES_CONFIG', '${JSON.stringify(moduleConfigs).
 			} else if (config.authMethod === authMethods.LONG_LIVED) {
 				auth = this.authManager.createLongLivedAuth(config.haUrl, config.authData);
 			}
-			
+
 			if (!auth) {
 				throw new Error('Failed to create authentication for validation');
 			}
-			
+
 			const connection = await window.HAWS.createConnection({ auth });
-			
+
 			try {
 				const entities = await window.HAWS.getStates(connection);
 				const entity = entities.find(state => state.entity_id === config.entityId);
@@ -724,23 +731,60 @@ Setting('HOMEASSISTANT_HELPER_MODULES_CONFIG', '${JSON.stringify(moduleConfigs).
 
 				// Entity exists and is accessible
 				HAHelperUtils.showNotification('success', HAHelperUtils.formatMessage(HAHelperConstants.CONFIG.MESSAGES.ENTITY_VALIDATED, config.entityId));
-				
+
 				return true;
 			} catch (connectionError) {
 				connection?.close();
 				throw connectionError;
 			}
 		} catch (error) {
-			HAHelperLogger.error('EntityValidation', 'Entity validation error:', error);
-			
-			if (error.message.includes('auth') || error.message.includes('Authentication')) {
+			// Handle different error types safely
+			let errorMessage = 'Unknown error';
+			let isWebSocketError = false;
+
+			if (typeof error === 'number') {
+				// Handle WebSocket error codes from Home Assistant library
+				isWebSocketError = true;
+				switch (error) {
+					case 1:
+						errorMessage = 'WebSocket connection failed';
+						break;
+					case 2:
+						errorMessage = 'Home Assistant authentication failed - invalid or expired token';
+						break;
+					case 3:
+						errorMessage = 'WebSocket connection lost';
+						break;
+					case 4:
+						errorMessage = 'Home Assistant connection timeout';
+						break;
+					default:
+						errorMessage = `Home Assistant WebSocket error code: ${error}`;
+						break;
+				}
+			} else if (typeof error === 'string') {
+				errorMessage = error;
+			} else if (error?.message) {
+				errorMessage = error.message;
+			} else if (error?.toString && typeof error.toString === 'function') {
+				errorMessage = error.toString();
+			} else {
+				errorMessage = String(error);
+			}
+
+			// Show appropriate error message
+			if (isWebSocketError && error === 2) {
 				HAHelperUtils.showNotification('error', HAHelperConstants.CONFIG.MESSAGES.AUTH_FAILED);
-			} else if (error.message.includes('timeout') || error.message.includes('network')) {
+			} else if (isWebSocketError && (error === 1 || error === 3 || error === 4)) {
+				HAHelperUtils.showNotification('error', HAHelperConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
+			} else if (errorMessage.includes('auth') || errorMessage.includes('Authentication')) {
+				HAHelperUtils.showNotification('error', HAHelperConstants.CONFIG.MESSAGES.AUTH_FAILED);
+			} else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
 				HAHelperUtils.showNotification('error', HAHelperConstants.CONFIG.MESSAGES.CONNECTION_TIMEOUT);
 			} else {
 				HAHelperUtils.showNotification('error', HAHelperConstants.CONFIG.MESSAGES.VALIDATION_FAILED);
 			}
-			
+
 			return false;
 		}
 	}
