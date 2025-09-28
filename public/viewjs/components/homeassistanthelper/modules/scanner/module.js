@@ -166,6 +166,18 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 		});
 	}
 
+	_checkExistingFocusedInputs() {
+		if (!this.globalToggleEnabled) {
+			return;
+		}
+
+		const $focusedInput = $(':focus');
+		if ($focusedInput.length > 0 && $focusedInput.is('input')) {
+			HAHelperLogger.debug('ScannerModule', `Found already-focused input during init: ${HAHelperUtils.getInputReference($focusedInput)}`);
+			this._setScannerWaiting($focusedInput);
+		}
+	}
+
 	_processScannerData(barcode) {
 
 		const $waitingInput = $(`.${this.config.CSS_CLASSES.INPUT_SCANNER_WAITING}`).first();
@@ -269,6 +281,9 @@ class HAHelperScannerModule extends HAHelperBaseModule {
 
 		// Now that config is loaded, subscribe to entities
 		this.subscribeToEntity();
+
+		// Check for already-focused inputs and set waiting state
+		this._checkExistingFocusedInputs();
 	}
 
 	getConfig() {

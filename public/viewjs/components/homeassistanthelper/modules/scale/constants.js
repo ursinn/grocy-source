@@ -4,6 +4,7 @@ class HAHelperScaleConstants {
 			// Scale-specific timing
 			STABLE_WEIGHT_DEBOUNCE: 100,
 			HOTKEY_CLEANUP_DELAY: 150,
+			FORM_SUBMIT_DELAY: 500,
 
 			// Scale-specific hotkeys
 			HOTKEYS: {

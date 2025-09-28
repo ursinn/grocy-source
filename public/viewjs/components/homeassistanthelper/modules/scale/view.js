@@ -125,7 +125,7 @@ class HAHelperScaleView {
 						if ($node.hasClass('toast-success') || $node.find('.toast-success').length > 0) {
 							const message = $node.text().trim();
 							if (this.isStockOperationSuccess(message)) {
-								setTimeout(() => this.resetAllInputs('success-detection'), HAHelperScaleConstants.CONFIG.SUCCESS_RESET_DELAY || 3000);
+								this.resetAllInputs('success-detection');
 								return;
 							}
 						}

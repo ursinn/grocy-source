@@ -143,5 +143,7 @@ class HAHelperScaleInputManager {
 		$(`.${this.css.INPUT_WAITING}, .${this.css.INPUT_FULFILLED}`).each((_, input) => {
 			this.setState($(input), this.states.IDLE);
 		});
+
+		$(`.${this.css.AUTO_TARGETED}`).removeClass(this.css.AUTO_TARGETED);
 	}
 }

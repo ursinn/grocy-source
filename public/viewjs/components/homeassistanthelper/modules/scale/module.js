@@ -165,10 +165,20 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 			}, HAHelperScaleConstants.CONFIG.INPUT_DEBOUNCE || 250)
 		);
 
-		// Handle form resets
 		this._addEventHandler($(document), 'reset', 'form', () => {
 			HAHelperLogger.debug('ScaleModule', 'Form reset detected, clearing all scale states');
 			this.view.resetAllInputs('form-reset'), HAHelperScaleConstants.CONFIG.FORM_RESET_DELAY;
+		});
+
+		this._addEventHandler($(document), 'submit', 'form', (e) => {
+			const $form = $(e.target);
+			const formId = $form.attr('id') || 'unknown-form';
+			HAHelperLogger.debug('ScaleModule', `Form submit detected: ${formId}`);
+
+			// Reset scale states after a delay to allow form processing
+			setTimeout(() => {
+				this.view.resetAllInputs('form-submit');
+			}, HAHelperScaleConstants.CONFIG.FORM_SUBMIT_DELAY);
 		});
 
 		this.view.setupSuccessDetection();
@@ -201,7 +211,7 @@ class HAHelperScaleModule extends HAHelperBaseModule {
 
 			if ($waitingInputs.length > 0) {
 				HAHelperUtils.showNotification('info', this.config.MESSAGES.READING_CANCELLED, { timeOut: this.config.TIMEOUTS.NOTIFICATION_QUICK });
-				this.view.resetAllInputs('success-detection');
+				this.view.resetAllInputs('hotkey-cancel');
 				return;
 			}
 

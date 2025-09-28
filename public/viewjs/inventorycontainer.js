@@ -18,11 +18,11 @@ function setFieldValidation(fieldId, isValid, message) {
 	var field = $('#' + fieldId);
 	var formGroup = field.closest('.form-group');
 	var invalidFeedback = formGroup.find('.invalid-feedback');
-	
+
 	// Remove existing validation classes
 	field.removeClass('is-invalid is-valid');
 	invalidFeedback.text('').removeClass('d-block');
-	
+
 	if (isValid) {
 		field.addClass('is-valid');
 	} else {
@@ -40,23 +40,23 @@ function checkWeightInconsistencyWarning(currentAmount, increaseAmount) {
 	if (currentAmount <= WEIGHT_PRECISION_TOLERANCE) {
 		return '';
 	}
-	
+
 	var percentageIncrease = (increaseAmount / currentAmount) * 100;
-	
+
 	// Show warning if increase is more than 3% of current amount (weight inconsistency)
 	if (percentageIncrease > 2) {
 		var warningClass = percentageIncrease > 5 ? 'text-danger' : 'text-warning';
 		var warningIcon = percentageIncrease > 5 ? 'fa-exclamation-triangle' : 'fa-exclamation-circle';
-		
+
 		return '<br><div class="alert ' + (percentageIncrease > 10 ? 'alert-danger' : 'alert-warning') + ' mt-2 mb-0">' +
-			'<i class="fa-solid ' + warningIcon + '"></i> ' + 
+			'<i class="fa-solid ' + warningIcon + '"></i> ' +
 			'<strong>' + __t('Weight Inconsistency Warning') + ':</strong> ' +
-			__t('Adding %1$s (%2$s%% increase from current amount). Please verify this measurement is correct.', 
+			__t('Adding %1$s (%2$s%% increase from current amount). Please verify this measurement is correct.',
 				formatAmountWithUnit(increaseAmount),
 				Math.round(percentageIncrease * 10) / 10) +
 			'</div>';
 	}
-	
+
 	return '';
 }
 
@@ -79,21 +79,21 @@ $('#container-inventory-form').on('submit', function(e)
 
 	// Validate gross weight first
 	validateGrossWeight();
-	
+
 	// Validate stock source/destination if required
 	validateStockSourceDestination();
-	
+
 	if (!Grocy.FrontendHelpers.ValidateForm("container-inventory-form", true))
 	{
 		return;
 	}
-	
+
 	// Additional check: prevent submission if gross weight is invalid
 	if ($('#gross_weight').hasClass('is-invalid'))
 	{
 		return;
 	}
-	
+
 	// Additional check: prevent submission if stock source/destination validation failed
 	if ($('#source_stock_entry').hasClass('is-invalid') || $('#destination_stock_entry').hasClass('is-invalid'))
 	{
@@ -113,25 +113,25 @@ $('#container-inventory-form').on('submit', function(e)
 	.done(function(response)
 	{
 		Grocy.FrontendHelpers.EndUiBusy("container-inventory-form");
-		
+
 		if (response.success)
 		{
-			toastr.success(__t('Inventory saved successfully') + 
-				'<br><strong>' + __t('Net weight') + ':</strong> ' + 
+			toastr.success(__t('Inventory saved successfully') +
+				'<br><strong>' + __t('Net weight') + ':</strong> ' +
 				formatAmountWithUnit(response.net_weight));
-			
+
 			// Refresh product card to reflect updated inventory
 			if (CurrentStockEntry && CurrentStockEntry.product)
 			{
 				Grocy.Components.ProductCard.Refresh(CurrentStockEntry.product.id);
 			}
-			
+
 			// Refresh recent inventories table
 			loadRecentInventories();
-			
+
 			// Clear the form
 			clearForm();
-			
+
 			// Focus back to barcode input
 			setTimeout(function()
 			{
@@ -146,13 +146,13 @@ $('#container-inventory-form').on('submit', function(e)
 	.fail(function(xhr)
 	{
 		Grocy.FrontendHelpers.EndUiBusy("container-inventory-form");
-		
+
 		var errorMsg = __t('An error occurred');
 		if (xhr.responseJSON && xhr.responseJSON.error)
 		{
 			errorMsg = xhr.responseJSON.error;
 		}
-		
+
 		toastr.error(errorMsg);
 	});
 });
@@ -189,36 +189,36 @@ $('#gross_weight').on('input blur change', function()
 function validateGrossWeight()
 {
 	var grossWeight = parseFloat($('#gross_weight').val()) || 0;
-	
+
 	if (grossWeight < CurrentContainerWeight)
 	{
 		setFieldValidation('gross_weight', false, __t('Gross weight cannot be less than container weight (%1$s)', formatAmountWithUnit(CurrentContainerWeight)));
 		return false;
 	}
-	
+
 	if (!isWeightChangeSignificant(grossWeight, ExpectedGrossWeight) && CurrentStockEntry)
 	{
 		setFieldValidation('gross_weight', false, __t('No inventory change detected - adjust the gross weight to reflect actual inventory'));
 		return false;
 	}
-	
+
 	if (grossWeight >= CurrentContainerWeight)
 	{
 		setFieldValidation('gross_weight', true, '');
 		return true;
 	}
-	
+
 	return false;
 }
 
 function validateStockSourceDestination()
 {
 	clearValidationStates();
-	
+
 	if (!CurrentStockEntry) {
 		return true;
 	}
-	
+
 	return validateStockSource() && validateStockDestination();
 }
 
@@ -233,15 +233,15 @@ function validateStockSource()
 	if ($('#stock-source-group').hasClass('d-none')) {
 		return true;
 	}
-	
+
 	var sourceStockEntry = $('#source_stock_entry').val();
 	var partialTransferMode = $('input[name="partial_transfer_mode"]:checked').val();
-	
+
 	if (!sourceStockEntry && !partialTransferMode) {
 		setFieldValidation('source_stock_entry', false, __t('Please select where this stock came from or choose how to handle the stock increase'));
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -250,18 +250,18 @@ function validateStockDestination()
 	if ($('#stock-destination-group').hasClass('d-none')) {
 		return true;
 	}
-	
+
 	var destinationType = $('input[name="destination_type"]:checked').val();
 	if (destinationType !== 'transfer') {
 		return true;
 	}
-	
+
 	var destinationStockEntry = $('#destination_stock_entry').val();
 	if (!destinationStockEntry) {
 		setFieldValidation('destination_stock_entry', false, __t('Please select destination stock entry'));
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -312,7 +312,7 @@ function processBarcode(barcode)
 {
 	var barcodeData = parseGrocycode(barcode);
 	if (!barcodeData) return;
-	
+
 	// Get stock entry details
 	loadStockEntryDetails(barcodeData.productId, barcodeData.stockId);
 }
@@ -325,14 +325,14 @@ function parseGrocycode(barcode)
 		showError(__t('Invalid barcode format. Expected container barcode (grcy:p:PRODUCT_ID:STOCK_ID)'));
 		return null;
 	}
-	
+
 	var parts = barcode.split(':');
 	if (parts.length < 4)
 	{
 		showError(__t('Invalid barcode format. Missing stock entry information.'));
 		return null;
 	}
-	
+
 	return {
 		productId: parts[2],
 		stockId: parts[3]
@@ -342,7 +342,7 @@ function parseGrocycode(barcode)
 function loadStockEntryDetails(productId, stockId)
 {
 	Grocy.FrontendHelpers.BeginUiBusy("container-details");
-	
+
 	// Get product details
 	Grocy.Api.Get('stock/products/' + productId, function(productDetails)
 	{
@@ -353,17 +353,17 @@ function loadStockEntryDetails(productId, stockId)
 			var stockEntry = stockEntries.find(function(entry) {
 				return entry.stock_id === stockId;
 			});
-			
+
 			if (!stockEntry)
 			{
 				Grocy.FrontendHelpers.EndUiBusy("container-details");
 				showError(__t('Stock entry not found'));
 				return;
 			}
-			
+
 			// Get the location for this specific stock entry
 			var locationId = stockEntry.location_id || productDetails.product.location_id;
-			
+
 			// Use cached location data
 			loadCachedData(function(products, locations) {
 				var location = null;
@@ -372,7 +372,7 @@ function loadStockEntryDetails(productId, stockId)
 						return loc.id == locationId;
 					});
 				}
-				
+
 				// Get container weight from userfield
 				getContainerWeight(stockId, function(containerWeight)
 				{
@@ -383,7 +383,7 @@ function loadStockEntryDetails(productId, stockId)
 						location: location
 					};
 					CurrentContainerWeight = containerWeight;
-					
+
 					displayStockEntryDetails();
 					Grocy.FrontendHelpers.EndUiBusy("container-details");
 				});
@@ -399,18 +399,18 @@ function getContainerWeight(stockId, callback)
 	{
 		// Get the container weight directly from the userfields object
 		var containerWeightValue = userfieldValues.StockEntryContainerWeight;
-		
+
 		var weight = containerWeightValue ? parseFloat(containerWeightValue) || 0 : 0;
-		
+
 		if (weight === 0)
 		{
 			// Show modal about missing container weight
 			$('#container-weight-modal').modal('show');
 		}
-		
+
 		callback(weight);
 	});
-	
+
 	// Check if apiCall is valid before chaining .fail()
 	if (apiCall && typeof apiCall.fail === 'function')
 	{
@@ -429,38 +429,38 @@ function displayStockEntryDetails()
 	{
 		return;
 	}
-	
+
 	var stockEntry = CurrentStockEntry.stock_entry;
 	var product = CurrentStockEntry.product;
 	var location = CurrentStockEntry.location;
-	
+
 	// Populate the details card
 	$('#product_name').text(product.name);
 	$('#current_amount').text(formatAmountWithUnit(parseFloat(stockEntry.amount)));
 	$('#location_name').text(location ? location.name : __t('Unknown'));
 	$('#container_weight').text(formatAmountWithUnit(CurrentContainerWeight));
 	$('#best_before_date').text(moment(stockEntry.best_before_date).format('L'));
-	
+
 	// Set units for weight inputs
 	$('#gross_weight_unit').text(CurrentStockEntry.product_details.quantity_unit_stock.name);
 	$('#net_weight_unit').text(CurrentStockEntry.product_details.quantity_unit_stock.name);
-	
+
 	// Update product card with current product
 	Grocy.Components.ProductCard.Refresh(product.id);
-	
+
 	// Show the container details section
 	$('#container-details').removeClass('d-none');
-	
+
 	// Initial field validation will handle button state
-	
+
 	// Set default gross weight to current amount + container weight
 	var defaultGrossWeight = parseFloat(stockEntry.amount) + CurrentContainerWeight;
 	ExpectedGrossWeight = defaultGrossWeight; // Store the expected weight
 	$('#gross_weight').val(formatAmount(defaultGrossWeight));
-	
+
 	// Calculate net weight and update scenario
 	calculateNetWeight();
-	
+
 	// Focus on gross weight input
 	setTimeout(function()
 	{
@@ -472,14 +472,14 @@ function calculateNetWeight()
 {
 	var grossWeight = parseFloat($('#gross_weight').val()) || 0;
 	var netWeight = grossWeight - CurrentContainerWeight;
-	
+
 	if (netWeight < 0)
 	{
 		netWeight = 0;
 	}
-	
+
 	$('#net_weight').val(formatAmount(netWeight));
-	
+
 	// Show inventory scenario information
 	updateInventoryScenario(netWeight);
 }
@@ -488,48 +488,48 @@ function updateInventoryScenario(netWeight)
 {
 	// Remove any existing scenario info
 	$('#inventory-scenario').remove();
-	
+
 	// Hide all scenario-specific form fields
 	$('#stock-source-group').addClass('d-none');
 	$('#stock-destination-group').addClass('d-none');
-	
+
 	// Clear validation when hiding fields
 	setFieldValidation('source_stock_entry', true, '');
 	setFieldValidation('destination_stock_entry', true, '');
-	
+
 	if (!CurrentStockEntry || netWeight <= 0)
 	{
 		return;
 	}
-	
+
 	var currentAmount = parseFloat(CurrentStockEntry.stock_entry.amount) || 0;
 	var difference = netWeight - currentAmount;
-	
+
 	var scenarioHtml = '';
-	
+
 	// Check if this represents a significant inventory change
 	var currentGrossWeight = parseFloat($('#gross_weight').val()) || 0;
-	var hasSignificantChange = !isNaN(difference) && 
-		Math.abs(difference) >= WEIGHT_PRECISION_TOLERANCE && 
+	var hasSignificantChange = !isNaN(difference) &&
+		Math.abs(difference) >= WEIGHT_PRECISION_TOLERANCE &&
 		isWeightChangeSignificant(currentGrossWeight, ExpectedGrossWeight);
-	
+
 	if (!hasSignificantChange)
 	{
 		setFieldValidation('gross_weight', false, __t('No inventory change detected - adjust the gross weight to reflect actual inventory'));
 		return;
 	}
-	
+
 	setFieldValidation('gross_weight', true, '');
-	
+
 	if (difference > 0) // Stock increased
 	{
-		scenarioHtml = createScenarioAlert('increase', 'fa-plus-circle', 
+		scenarioHtml = createScenarioAlert('increase', 'fa-plus-circle',
 			__t('Stock increased by %1$s. Please specify where this stock came from.', formatAmountWithUnit(difference)));
 		$('#stock-source-group').removeClass('d-none');
-		
+
 		// Show the option to add without source immediately
 		updatePartialTransferInfo();
-		
+
 		loadAvailableStockEntries('source');
 		// Trigger validation since we now require a source
 		setTimeout(function() {
@@ -541,14 +541,14 @@ function updateInventoryScenario(netWeight)
 		scenarioHtml = createScenarioAlert('decrease', 'fa-minus-circle',
 			__t('Stock decreased by %1$s. Please specify where this stock went.', formatAmountWithUnit(Math.abs(difference))));
 		$('#stock-destination-group').removeClass('d-none');
-		
+
 		// Always reset to "Consumed" as default
 		$('#destination_consume').prop('checked', true);
 		$('#destination-stock-entry').addClass('d-none');
 		// Clear validation since consume doesn't require destination selection
 		setFieldValidation('destination_stock_entry', true, '');
 	}
-	
+
 	if (scenarioHtml)
 	{
 		$('#net_weight').closest('.form-group').after(scenarioHtml);
@@ -561,9 +561,9 @@ function loadAvailableStockEntries(type)
 	{
 		return;
 	}
-	
+
 	var productId = CurrentStockEntry.product.id;
-	
+
 	// Use cached location data
 	loadCachedData(function(_, locations) {
 		// Create a lookup map for locations
@@ -571,47 +571,47 @@ function loadAvailableStockEntries(type)
 		locations.forEach(function(location) {
 			locationMap[location.id] = location.name;
 		});
-		
+
 		// Get all stock entries for this product
 		Grocy.Api.Get('stock/products/' + productId + '/entries', function(stockEntries)
 		{
 			var selectElement = $('#' + type + '_stock_entry');
 			selectElement.empty();
 			selectElement.append('<option value="">' + __t('Select stock entry') + '</option>');
-			
+
 			// Filter out the current stock entry
 			var availableEntries = stockEntries.filter(function(entry) {
 				return entry.stock_id !== CurrentStockEntry.stock_entry.stock_id;
 			});
-			
+
 			// Store available entries for partial transfer calculations
 			window.AvailableStockEntries = availableEntries;
-			
+
 			availableEntries.forEach(function(entry) {
 				var amount = formatAmount(parseFloat(entry.amount));
 				var unit = CurrentStockEntry.product_details.quantity_unit_stock.name;
-				
+
 				// Create detailed option text similar to consume form
-				var optionText = __t("Amount: %1$s %2$s; Due on %3$s; Bought on %4$s", 
-					amount, 
+				var optionText = __t("Amount: %1$s %2$s; Due on %3$s; Bought on %4$s",
+					amount,
 					unit,
-					moment(entry.best_before_date).format("YYYY-MM-DD"), 
+					moment(entry.best_before_date).format("YYYY-MM-DD"),
 					moment(entry.purchased_date).format("YYYY-MM-DD")
 				);
-				
+
 				// Add location info if available
 				if (entry.location_id && locationMap[entry.location_id]) {
 					optionText += "; " + __t("Location: %1$s", locationMap[entry.location_id]);
 				}
-				
+
 				// Add note if available
 				if (entry.note && entry.note.trim()) {
 					optionText += "; " + __t("Note: %1$s", entry.note);
 				}
-				
+
 				selectElement.append('<option value="' + entry.stock_id + '">' + optionText + '</option>');
 			});
-			
+
 			// Check if we need to show the partial transfer option
 			updatePartialTransferInfo();
 		});
@@ -622,30 +622,30 @@ function updatePartialTransferInfo()
 {
 	// Reset UI state
 	hidePartialTransferUI();
-	
+
 	if (!isPartialTransferContextValid()) {
 		return;
 	}
-	
+
 	var transferContext = getTransferContext();
-	
+
 	if (!transferContext.hasSourceSelected) {
 		showNoSourceOptions(transferContext);
 		return;
 	}
-	
+
 	if (transferContext.sourceHasEnoughStock) {
 		// Source has enough stock, no special handling needed
 		return;
 	}
-	
+
 	showPartialTransferOptions(transferContext);
 }
 
 function isPartialTransferContextValid()
 {
-	return CurrentStockEntry && 
-		   window.AvailableStockEntries && 
+	return CurrentStockEntry &&
+		   window.AvailableStockEntries &&
 		   $('#stock-source-group').is(':visible');
 }
 
@@ -655,17 +655,17 @@ function getTransferContext()
 	var netWeight = parseFloat($('#net_weight').val()) || 0;
 	var currentAmount = parseFloat(CurrentStockEntry.stock_entry.amount) || 0;
 	var requiredIncrease = netWeight - currentAmount;
-	
+
 	var sourceEntry = null;
 	var availableFromSource = 0;
-	
+
 	if (selectedSourceId && window.AvailableStockEntries) {
 		sourceEntry = window.AvailableStockEntries.find(function(entry) {
 			return entry.stock_id === selectedSourceId;
 		});
 		availableFromSource = sourceEntry ? parseFloat(sourceEntry.amount) : 0;
 	}
-	
+
 	return {
 		selectedSourceId: selectedSourceId,
 		hasSourceSelected: !!selectedSourceId,
@@ -689,10 +689,10 @@ function showNoSourceOptions(context)
 {
 	$('#stock-modification-option').removeClass('d-none');
 	$('#add_remaining').prop('checked', true);
-	
+
 	var baseText = __t('All %1$s will be added without a source transfer', formatAmountWithUnit(context.requiredIncrease));
 	var warningHtml = checkWeightInconsistencyWarning(context.currentAmount, context.requiredIncrease);
-	
+
 	$('#remaining-modification-details').html(baseText + warningHtml);
 }
 
@@ -700,37 +700,37 @@ function showPartialTransferOptions(context)
 {
 	$('#partial-transfer-info').removeClass('d-none');
 	$('#partial-transfer-message').text(
-		__t('Selected source only has %1$s available, but %2$s is needed', 
-			formatAmountWithUnit(context.availableFromSource), 
+		__t('Selected source only has %1$s available, but %2$s is needed',
+			formatAmountWithUnit(context.availableFromSource),
 			formatAmountWithUnit(context.requiredIncrease))
 	);
-	
+
 	$('#stock-modification-option').removeClass('d-none');
 	$('#add_remaining').prop('checked', true);
-	
+
 	updatePartialTransferDetails(context.availableFromSource, context.remainingAmount);
 }
 
 function updatePartialTransferDetails(availableFromSource, remaining)
 {
 	var selectedMode = $('input[name="partial_transfer_mode"]:checked').val();
-	
+
 	if (selectedMode === 'transfer_available_only') {
 		var netWeightAfterTransfer = parseFloat(CurrentStockEntry.stock_entry.amount) + availableFromSource;
 		$('#remaining-modification-details').text(
-			__t('Transfer only %1$s from source (final amount will be %2$s)', 
+			__t('Transfer only %1$s from source (final amount will be %2$s)',
 				formatAmountWithUnit(availableFromSource),
 				formatAmountWithUnit(netWeightAfterTransfer))
 		);
 	} else {
 		// add_remaining mode - check for weight inconsistency warning
 		var currentAmount = parseFloat(CurrentStockEntry.stock_entry.amount);
-		var baseText = __t('Transfer %1$s from source and add remaining %2$s without source', 
-			formatAmountWithUnit(availableFromSource), 
+		var baseText = __t('Transfer %1$s from source and add remaining %2$s without source',
+			formatAmountWithUnit(availableFromSource),
 			formatAmountWithUnit(remaining)
 		);
 		var warningHtml = checkWeightInconsistencyWarning(currentAmount, remaining);
-		
+
 		$('#remaining-modification-details').html(baseText + warningHtml);
 	}
 }
@@ -738,7 +738,7 @@ function updatePartialTransferDetails(availableFromSource, remaining)
 function handlePartialTransferMode()
 {
 	var selectedMode = $('input[name="partial_transfer_mode"]:checked').val();
-	
+
 	if (selectedMode === 'transfer_available_only') {
 		adjustGrossWeightForAvailableTransfer();
 	}
@@ -750,19 +750,19 @@ function adjustGrossWeightForAvailableTransfer()
 	if (!isPartialTransferContextValid()) {
 		return;
 	}
-	
+
 	var context = getTransferContext();
-	
+
 	if (!context.hasSourceSelected || !context.sourceEntry) {
 		return;
 	}
-	
+
 	var targetNetWeight = context.currentAmount + context.availableFromSource;
 	var targetGrossWeight = targetNetWeight + CurrentContainerWeight;
-	
+
 	// Update weights without triggering full scenario update
 	updateWeightsDirectly(targetGrossWeight);
-	
+
 	// Update the UI to reflect the change
 	updatePartialTransferInfo();
 }
@@ -770,7 +770,7 @@ function adjustGrossWeightForAvailableTransfer()
 function updateWeightsDirectly(grossWeight)
 {
 	$('#gross_weight').val(formatAmount(grossWeight));
-	
+
 	var netWeight = grossWeight - CurrentContainerWeight;
 	if (netWeight < 0) netWeight = 0;
 	$('#net_weight').val(formatAmount(netWeight));
@@ -778,23 +778,25 @@ function updateWeightsDirectly(grossWeight)
 
 function clearForm()
 {
+	$('#container-inventory-form').trigger('reset');
+
 	// Clear all input fields
 	$('#container_scanner, #gross_weight, #net_weight, #source_stock_entry, #destination_stock_entry').val('');
-	
+
 	// Reset radio buttons to default
 	$('#destination_consume').prop('checked', true);
 	$('input[name="partial_transfer_mode"]').prop('checked', false);
-	
+
 	// Hide sections
 	$('#container-details, #stock-source-group, #stock-destination-group, #destination-stock-entry, #partial-transfer-info, #stock-modification-option').addClass('d-none');
 	$('#inventory-scenario').remove();
-	
+
 	// Reset state
 	resetInventoryState();
-	
+
 	// Clear validation
 	Grocy.FrontendHelpers.ValidateForm('container-inventory-form');
-	
+
 	// Focus barcode input
 	setTimeout(function()
 	{
@@ -930,15 +932,15 @@ $(document).ready(function()
 	{
 		$('#container_scanner').focus();
 	}, Grocy.FormFocusDelay);
-	
+
 	// Initialize tooltips
 	$('[data-toggle="tooltip"]').tooltip();
-	
+
 	// Load recent inventories
 	loadRecentInventories();
 });
 
-// Handle barcode scanner integration 
+// Handle barcode scanner integration
 $(document).on("Grocy.BarcodeScanned", function(_, barcode, target)
 {
 	if (target !== "#container_scanner")
