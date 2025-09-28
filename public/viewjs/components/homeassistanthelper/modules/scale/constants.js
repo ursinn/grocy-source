@@ -1,4 +1,4 @@
-class HAHelperScaleConstants {
+export class HAHelperScaleConstants {
 	static get CONFIG() {
 		return Object.freeze({
 			// Scale-specific timing

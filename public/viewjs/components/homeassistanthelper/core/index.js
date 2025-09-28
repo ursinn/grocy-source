@@ -1,3 +1,6 @@
+import { HAHelperScaleModule } from '../modules/scale/module.js';
+import { HAHelperScannerModule } from '../modules/scanner/module.js';
+
 class HAHelperController {
 	constructor() {
 		this.config = HAHelperConstants.CONFIG;
@@ -242,9 +245,7 @@ Grocy.Components.HomeAssistantHelper = {
 	}
 };
 
-setTimeout(async () => {
-	await Grocy.Components.HomeAssistantHelper.Init();
-}, HAHelperConstants.CONFIG.INIT_DELAY);
+Grocy.Components.HomeAssistantHelper.Init();
 
 $(window).on('beforeunload', () => {
 	if (Grocy.Components.HomeAssistantHelper.Controller) {

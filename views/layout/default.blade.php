@@ -786,7 +786,30 @@
 	<script src="{{ $U('/packages/home-assistant-js-websocket/dist/haws.umd.js?v=', true) }}{{ $version }}"></script>
 	
 	<!-- Home Assistant Helper Integration (Global) -->
-	<script src="{{ $U('/viewjs/components/homeassistanthelper.js?v=', true) }}{{ $version }}"></script>
+	<!-- NOTE: Scripts must be loaded directly (not dynamically) for better performance
+	     and to prevent interference with on-page-load auto form focus -->
+	<!-- Core components -->
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/constants.js?v=', true) }}{{ $version }}"></script>
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/core.js?v=', true) }}{{ $version }}"></script>
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/model.js?v=', true) }}{{ $version }}"></script>
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/events.js?v=', true) }}{{ $version }}"></script>
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/auth.js?v=', true) }}{{ $version }}"></script>
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/services.js?v=', true) }}{{ $version }}"></script>
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/module-registry.js?v=', true) }}{{ $version }}"></script>
+
+	<!-- Scale module -->
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/modules/scale/constants.js?v=', true) }}{{ $version }}"></script>
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/modules/scale/input-manager.js?v=', true) }}{{ $version }}"></script>
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/modules/scale/view.js?v=', true) }}{{ $version }}"></script>
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/modules/scale/module.js?v=', true) }}{{ $version }}"></script>
+
+	<!-- Scanner module -->
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/modules/scanner/constants.js?v=', true) }}{{ $version }}"></script>
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/modules/scanner/module.js?v=', true) }}{{ $version }}"></script>
+
+	<!-- Main components -->
+	<script src="{{ $U('/viewjs/components/homeassistanthelper/core/ui.js?v=', true) }}{{ $version }}"></script>
+	<script type="module" src="{{ $U('/viewjs/components/homeassistanthelper/core/index.js?v=', true) }}{{ $version }}"></script>
 	
 	<script src="{{ $U('/viewjs/' . $viewName . '.js?v=', true) }}{{ $version }}"></script>
 

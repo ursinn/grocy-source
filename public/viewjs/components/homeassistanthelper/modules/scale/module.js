@@ -1,4 +1,8 @@
-class HAHelperScaleModule extends HAHelperBaseModule {
+import { HAHelperScaleConstants } from './constants.js';
+import { HAHelperScaleInputManager } from './input-manager.js';
+import { HAHelperScaleView } from './view.js';
+
+export class HAHelperScaleModule extends HAHelperBaseModule {
 	constructor(id, core) {
 		super(id, core);
 		this.config = HAHelperScaleConstants.CONFIG;

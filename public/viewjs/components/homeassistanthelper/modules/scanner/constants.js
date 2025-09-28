@@ -1,4 +1,4 @@
-class HAHelperScannerConstants {
+export class HAHelperScannerConstants {
 	static get CONFIG() {
 		return Object.freeze({
 			// Scanner-specific timing

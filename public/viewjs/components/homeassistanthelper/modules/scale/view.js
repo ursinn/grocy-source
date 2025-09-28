@@ -1,4 +1,4 @@
-class HAHelperScaleView {
+export class HAHelperScaleView {
 	constructor(module) {
 		this.module = module;
 	}

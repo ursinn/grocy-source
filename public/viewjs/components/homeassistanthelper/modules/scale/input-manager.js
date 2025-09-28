@@ -1,4 +1,6 @@
-class HAHelperScaleInputManager {
+import { HAHelperScaleConstants } from './constants.js';
+
+export class HAHelperScaleInputManager {
 	constructor() {
 		this.css = HAHelperScaleConstants.CONFIG.CSS_CLASSES;
 		this.states = {

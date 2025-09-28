@@ -1,4 +1,6 @@
-class HAHelperScannerModule extends HAHelperBaseModule {
+import { HAHelperScannerConstants } from './constants.js';
+
+export class HAHelperScannerModule extends HAHelperBaseModule {
 	constructor(id, core) {
 		super(id, core);
 		this.config = HAHelperScannerConstants.CONFIG;
