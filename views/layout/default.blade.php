@@ -126,6 +126,16 @@
 		Grocy.UserSettings = { };
 		Grocy.UserId = -1;
 		@endif
+
+		// Home Assistant Helper defaults from config
+		Grocy.HomeAssistantHelper = {
+			defaults: {
+				haUrl: '{{ GROCY_HOMEASSISTANT_HELPER_URL }}',
+				longLivedToken: '{{ GROCY_HOMEASSISTANT_HELPER_LONG_LIVED_TOKEN }}',
+				modulesEnabled: {!! GROCY_HOMEASSISTANT_HELPER_MODULES_ENABLED !!},
+				modulesConfig: {!! GROCY_HOMEASSISTANT_HELPER_MODULES_CONFIG !!}
+			}
+		};
 	</script>
 </head>
 

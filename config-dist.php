@@ -227,3 +227,9 @@ DefaultUserSetting('calendar_color_tasks', '#28a745'); // The event color (hex c
 DefaultUserSetting('calendar_color_chores', '#ffc107'); // The event color (hex code) for due chores
 DefaultUserSetting('calendar_color_batteries', '#17a2b8'); // The event color (hex code) for due battery charge cycles
 DefaultUserSetting('calendar_color_meal_plan', '#6c757d'); // The event color (hex code) for meal plan items
+
+// Home Assistant Helper settings
+Setting('HOMEASSISTANT_HELPER_URL', ''); // Default Home Assistant URL
+Setting('HOMEASSISTANT_HELPER_LONG_LIVED_TOKEN', ''); // Default long-lived access token
+Setting('HOMEASSISTANT_HELPER_MODULES_ENABLED', '{}'); // Default enabled modules as JSON string
+Setting('HOMEASSISTANT_HELPER_MODULES_CONFIG', '{}'); // Default module configurations as JSON string

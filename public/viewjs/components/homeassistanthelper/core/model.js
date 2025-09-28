@@ -75,12 +75,27 @@ class HAHelperModel {
 	loadConfiguration() {
 		try {
 			const keys = HAHelperConstants.CONFIG.STORAGE_KEYS;
+			const defaults = window.Grocy?.HomeAssistantHelper?.defaults || {};
+
+			// Get localStorage deltas
+			const urlDelta = HAHelperStorageService.get(keys.HA_URL);
+			const authMethodDelta = HAHelperStorageService.get(keys.AUTH_METHOD);
+			const modulesDelta = HAHelperStorageService.getJson(keys.MODULES_CONFIG);
+			const modulesEnabledDelta = HAHelperStorageService.getJson(keys.MODULES_ENABLED);
+
+			// Use config.php defaults if localStorage is empty, otherwise use localStorage
 			this.config = {
-				haUrl: HAHelperStorageService.get(keys.HA_URL) || null,
-				authMethod: HAHelperStorageService.get(keys.AUTH_METHOD) || null,
-				modules: HAHelperStorageService.getJson(keys.MODULES_CONFIG) || {},
-				modulesEnabled: HAHelperStorageService.getJson(keys.MODULES_ENABLED) || {}
+				haUrl: urlDelta || defaults.haUrl || null,
+				authMethod: authMethodDelta || HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED,
+				modules: modulesDelta || defaults.modulesConfig || {},
+				modulesEnabled: modulesEnabledDelta || defaults.modulesEnabled || {}
 			};
+
+			// Load long-lived token from config.php defaults if available
+			if (defaults.longLivedToken && this.config.authMethod === HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED) {
+				HAHelperStorageService.set(keys.LONG_LIVED_TOKEN, defaults.longLivedToken);
+			}
+
 			return this.isConfigComplete();
 		} catch (error) {
 			HAHelperLogger.error('Config', 'Error loading configuration:', error);
@@ -91,18 +106,43 @@ class HAHelperModel {
 	saveConfiguration() {
 		try {
 			const keys = HAHelperConstants.CONFIG.STORAGE_KEYS;
+			const defaults = window.Grocy?.HomeAssistantHelper?.defaults || {};
 
-			// Save core configuration
-			HAHelperStorageService.set(keys.HA_URL, HAHelperUtils.sanitizeUrl(this.config.haUrl || ''));
-			HAHelperStorageService.set(keys.AUTH_METHOD, this.config.authMethod || null);
+			// Only save to localStorage if different from config.php defaults
+			const currentUrl = HAHelperUtils.sanitizeUrl(this.config.haUrl || '');
+			if (currentUrl !== (defaults.haUrl || '')) {
+				HAHelperStorageService.set(keys.HA_URL, currentUrl);
+			} else {
+				HAHelperStorageService.remove(keys.HA_URL);
+			}
 
-			// Save module configurations
-			HAHelperStorageService.setJson(keys.MODULES_CONFIG, this.config.modules || {});
+			// Save auth method only if different from default (long_lived)
+			const defaultAuthMethod = HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED;
+			if (this.config.authMethod !== defaultAuthMethod) {
+				HAHelperStorageService.set(keys.AUTH_METHOD, this.config.authMethod || null);
+			} else {
+				HAHelperStorageService.remove(keys.AUTH_METHOD);
+			}
 
-			// Save module enabled states
-			HAHelperStorageService.setJson(keys.MODULES_ENABLED, this.config.modulesEnabled || {});
+			// Save module configurations only if different from defaults
+			const currentModules = this.config.modules || {};
+			const defaultModules = defaults.modulesConfig || {};
+			if (JSON.stringify(currentModules) !== JSON.stringify(defaultModules)) {
+				HAHelperStorageService.setJson(keys.MODULES_CONFIG, currentModules);
+			} else {
+				HAHelperStorageService.remove(keys.MODULES_CONFIG);
+			}
 
-			HAHelperLogger.debug('Config', 'Configuration saved:', this.config);
+			// Save module enabled states only if different from defaults
+			const currentModulesEnabled = this.config.modulesEnabled || {};
+			const defaultModulesEnabled = defaults.modulesEnabled || {};
+			if (JSON.stringify(currentModulesEnabled) !== JSON.stringify(defaultModulesEnabled)) {
+				HAHelperStorageService.setJson(keys.MODULES_ENABLED, currentModulesEnabled);
+			} else {
+				HAHelperStorageService.remove(keys.MODULES_ENABLED);
+			}
+
+			HAHelperLogger.debug('Config', 'Configuration saved (deltas only):', this.config);
 		} catch (error) {
 			HAHelperLogger.error('Config', 'Error saving configuration:', error);
 		}

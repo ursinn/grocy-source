@@ -29,6 +29,8 @@ class HAHelperAuthUIManager {
 			entityInput: $container.find('.entity-input'),
 			connectionStatus: $container.find('.connection-status'),
 			configSave: $container.find('.config-save'),
+			copyConfigBtn: $container.find('.copy-config-btn'),
+			clearConfigBtn: $container.find('.clear-config-btn'),
 			logoutBtn: $container.find('.logout-btn'),
 			logLevelSelect: $container.find('.log-level-select')
 		};
@@ -217,6 +219,21 @@ class HAHelperTemplateGenerator {
 									<option value="3">All (Debug)</option>
 								</select>
 							</div>
+
+							<!-- Configuration Management -->
+							<hr>
+							<h6><i class="fa-solid fa-cog"></i> Configuration Management</h6>
+							<div class="form-group">
+								<small class="text-muted">Export your current configuration to use in config.php or clear all local settings to use defaults.</small>
+								<div class="mt-2">
+									<button type="button" class="btn btn-outline-info btn-sm copy-config-btn mr-2" title="Copy current configuration as PHP settings">
+										<i class="fa-solid fa-copy"></i> Copy Config to Clipboard
+									</button>
+									<button type="button" class="btn btn-outline-warning btn-sm clear-config-btn" title="Clear all local settings and use defaults from config.php">
+										<i class="fa-solid fa-broom"></i> Clear Local Settings
+									</button>
+								</div>
+							</div>
 						</div>
 						<div class="modal-footer d-flex justify-content-between align-items-center">
 							<div class="connection-status-display">
@@ -339,15 +356,20 @@ class HAHelperView {
 				if (this.moduleRegistry) {
 					const availableModules = this.moduleRegistry.getAvailableModules();
 					const modulesEnabled = config.modulesEnabled || {};
+
+					// Update checkboxes
 					Object.entries(availableModules).forEach(([id]) => {
 						$(`#core-module-${id}-enabled`).prop('checked', modulesEnabled[id] === true);
 					});
 
-					// Regenerate module config sections to show enabled modules
-					this._generateModuleConfigSections();
+					// Update module registry states to match config
+					this.moduleRegistry.updateModuleStates(modulesEnabled).then(() => {
+						// Regenerate module config sections to show enabled modules
+						this._generateModuleConfigSections();
 
-					// Load modular configurations through module registry
-					this.moduleRegistry.loadModuleConfigs(config);
+						// Load modular configurations through module registry
+						this.moduleRegistry.loadModuleConfigs(config);
+					});
 				}
 
 				HAHelperLogger.debug('UI', 'Modal opened with auth state:', authState, 'config:', config);
@@ -560,6 +582,110 @@ class HAHelperView {
 			const newLevel = parseInt(e.target.value);
 			HAHelperLogger.setLevel(newLevel);
 			HAHelperLogger.info('UI', `Log level changed to: ${HAHelperLogger.LEVEL_NAMES[newLevel]}`);
+		});
+
+		// Copy Config to Clipboard button
+		this.eventManager.addHandler(elements.copyConfigBtn, 'click', async () => {
+			try {
+				const controller = Grocy.Components.HomeAssistantHelper.Controller;
+				if (!controller) {
+					HAHelperUtils.showNotification('error', 'Controller not available');
+					return;
+				}
+
+				// Collect current configuration
+				const config = controller.model.config;
+				const haUrl = HAHelperUtils.sanitizeUrl(elements.urlInput.val()) || config.haUrl || '';
+
+				// Get current module enable states from checkboxes
+				const moduleStates = {};
+				$('.core-module-checkbox').each((_, checkbox) => {
+					const moduleId = $(checkbox).data('module-id');
+					const isChecked = $(checkbox).is(':checked');
+					moduleStates[moduleId] = isChecked;
+				});
+
+				// Get current module configurations
+				const moduleConfigs = this.moduleRegistry ? this.moduleRegistry.getModuleConfigs() : {};
+
+				// Get current auth tokens
+				let longLivedToken = '';
+
+				if (config.authMethod === HAHelperConstants.CONFIG.AUTH_METHODS.LONG_LIVED) {
+					longLivedToken = HAHelperStorageService.get(HAHelperConstants.CONFIG.STORAGE_KEYS.LONG_LIVED_TOKEN) || '';
+				}
+
+				// Generate PHP configuration text
+				const phpConfig = `
+// Home Assistant Helper settings
+Setting('HOMEASSISTANT_HELPER_URL', '${haUrl}'); // Default Home Assistant URL
+Setting('HOMEASSISTANT_HELPER_LONG_LIVED_TOKEN', '${longLivedToken}'); // Default long-lived access token
+Setting('HOMEASSISTANT_HELPER_MODULES_ENABLED', '${JSON.stringify(moduleStates).replace(/'/g, "\\'")}'); // Default enabled modules as JSON string
+Setting('HOMEASSISTANT_HELPER_MODULES_CONFIG', '${JSON.stringify(moduleConfigs).replace(/'/g, "\\'")}'); // Default module configurations as JSON string`.trim();
+
+				// Copy to clipboard
+				if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(phpConfig);
+					HAHelperUtils.showNotification('success', 'Configuration copied to clipboard! Paste it into your config.php file.');
+				} else {
+					// Fallback for older browsers
+					const textArea = document.createElement('textarea');
+					textArea.value = phpConfig;
+					textArea.style.position = 'fixed';
+					textArea.style.left = '-999999px';
+					textArea.style.top = '-999999px';
+					document.body.appendChild(textArea);
+					textArea.focus();
+					textArea.select();
+
+					try {
+						document.execCommand('copy');
+						HAHelperUtils.showNotification('success', 'Configuration copied to clipboard! Paste it into your config.php file.');
+					} catch (err) {
+						HAHelperUtils.showNotification('error', 'Failed to copy to clipboard. Please copy manually from browser console.');
+						console.log('Home Assistant Helper Configuration for config.php:');
+						console.log(phpConfig);
+					}
+
+					document.body.removeChild(textArea);
+				}
+
+			} catch (error) {
+				HAHelperLogger.error('UI', 'Error copying config to clipboard:', error);
+				HAHelperUtils.showNotification('error', 'Failed to copy configuration to clipboard.');
+			}
+		});
+
+		// Clear Local Settings button
+		this.eventManager.addHandler(elements.clearConfigBtn, 'click', () => {
+			try {
+				// Show confirmation dialog
+				const confirmed = confirm('Are you sure you want to clear all local Home Assistant Helper settings? This will reset everything to config.php defaults and reload the page.');
+
+				if (!confirmed) {
+					return;
+				}
+
+				const keys = HAHelperConstants.CONFIG.STORAGE_KEYS;
+
+				// Clear all localStorage entries
+				HAHelperStorageService.remove(keys.HA_URL);
+				HAHelperStorageService.remove(keys.AUTH_METHOD);
+				HAHelperStorageService.remove(keys.LONG_LIVED_TOKEN);
+				HAHelperStorageService.remove(keys.OAUTH_TOKENS);
+				HAHelperStorageService.remove(keys.OAUTH_STATE);
+				HAHelperStorageService.remove(keys.MODULES_CONFIG);
+				HAHelperStorageService.remove(keys.MODULES_ENABLED);
+
+				HAHelperLogger.info('UI', 'All local settings cleared, reloading page');
+
+				// Reload the page to use defaults
+				window.location.reload();
+
+			} catch (error) {
+				HAHelperLogger.error('UI', 'Error clearing local settings:', error);
+				HAHelperUtils.showNotification('error', 'Failed to clear local settings.');
+			}
 		});
 	}
 
