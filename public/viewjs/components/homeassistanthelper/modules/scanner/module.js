@@ -192,6 +192,7 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 		$waitingInput.val(barcode);
 		$waitingInput.blur();
 		$waitingInput.focus();
+		$waitingInput.select();
 
 		// // Move focus to next input field
 		// setTimeout(() => {
@@ -207,7 +208,7 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 		// }, 50);
 
 		// Clear scanner waiting state
-		this._clearScannerWaiting($waitingInput);
+		// this._clearScannerWaiting($waitingInput);
 
 		const inputRef = HAHelperUtils.getInputReference($waitingInput);
 		HAHelperLogger.info('ScannerModule', `Scanner data processed: "${barcode}" → ${inputRef}`);
