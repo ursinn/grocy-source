@@ -256,6 +256,10 @@ Grocy.Components.ProductPicker.GetPicker().on('change', function(e)
 							function(stockEntries)
 							{
 								$("#location_id_from").val(stockEntries[0].location_id);
+								$("#location_id_from").trigger('change');
+								$('#display_amount').val(stockEntries[0].amount);
+								RefreshLocaleNumberInput();
+								$(".input-group-productamountpicker").trigger("change");
 							},
 							function(xhr)
 							{
