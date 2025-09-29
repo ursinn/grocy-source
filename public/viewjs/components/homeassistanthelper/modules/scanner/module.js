@@ -182,23 +182,24 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 
 	_processScannerData(barcode) {
 
-		const $waitingInput = $(`.${this.config.CSS_CLASSES.INPUT_SCANNER_WAITING}`).first();
+		const $targetInput = $(`.${this.config.CSS_CLASSES.INPUT_SCANNER_WAITING}`).first();
 
-		if ($waitingInput.length === 0) {
+		if ($targetInput.length === 0) {
 			HAHelperLogger.debug('ScannerModule', `Scanner data received but no waiting input: ${barcode}`);
 			return;
 		}
 
-		$waitingInput.val(barcode);
-		$waitingInput.blur();
-		$waitingInput.focus();
-		$waitingInput.select();
+		$targetInput.val(barcode);
+		$targetInput.trigger('input').trigger('change');
+		$targetInput.blur();
+		$targetInput.focus();
+		$targetInput.select();
 
 		// // Move focus to next input field
 		// setTimeout(() => {
 		// 	// Find next focusable input and move focus there
 		// 	const focusableElements = $('input:visible:enabled, select:visible:enabled, textarea:visible:enabled');
-		// 	const currentIndex = focusableElements.index($waitingInput[0]);
+		// 	const currentIndex = focusableElements.index($targetInput[0]);
 		// 	const nextElement = focusableElements.eq(currentIndex + 1);
 
 		// 	if (nextElement.length > 0) {
@@ -208,9 +209,9 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 		// }, 50);
 
 		// Clear scanner waiting state
-		// this._clearScannerWaiting($waitingInput);
+		// this._clearScannerWaiting($targetInput);
 
-		const inputRef = HAHelperUtils.getInputReference($waitingInput);
+		const inputRef = HAHelperUtils.getInputReference($targetInput);
 		HAHelperLogger.info('ScannerModule', `Scanner data processed: "${barcode}" → ${inputRef}`);
 	}
 

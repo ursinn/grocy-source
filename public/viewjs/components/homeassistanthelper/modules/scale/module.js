@@ -252,7 +252,7 @@ export class HAHelperScaleModule extends HAHelperBaseModule {
 		const formattedWeight = this.core.unitService.formatWeight(convertedWeight, precision);
 
 		$targetInput.val(formattedWeight);
-		//$targetInput.trigger('change');
+		$targetInput.trigger('input').trigger('change');
 		$targetInput.blur();
 		$targetInput.focus();
 
