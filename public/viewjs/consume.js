@@ -305,6 +305,8 @@ function OnLocationChange(locationId, stockId)
 				// {
 				// 	ScanModeSubmit();
 				// }
+
+				RefreshForm();
 			},
 			function(xhr)
 			{
