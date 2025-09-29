@@ -488,7 +488,7 @@ class HAHelperUnitService {
 		const roundingFactor = Math.pow(10, precision);
 		const roundedWeight = Math.round(weight * roundingFactor) / roundingFactor;
 
-		return roundedWeight.toLocaleString('en-US', {
+		return roundedWeight.toLocaleString({
 			minimumFractionDigits: 0,
 			maximumFractionDigits: precision
 		});
