@@ -242,7 +242,7 @@ $("#location_id").on('change', function(e)
 	}
 });
 
-function OnLocationChange(locationId, stockId)
+function OnLocationChange(locationId, stockId, callback)
 {
 	sumValue = 0;
 
@@ -307,6 +307,10 @@ function OnLocationChange(locationId, stockId)
 				// }
 
 				RefreshForm();
+
+				if (callback && typeof callback === 'function') {
+					callback();
+				}
 			},
 			function(xhr)
 			{
@@ -418,12 +422,21 @@ Grocy.Components.ProductPicker.GetPicker().on('change', function(e)
 								Grocy.Api.Get("stock/products/" + productId + '/entries?query[]=stock_id=' + gc[3],
 									function(stockEntries)
 									{
-										OnLocationChange(stockEntries[0].location_id, gc[3]);
-										$('#display_amount').val(stockEntries[0].amount);
-										$('#display_amount').trigger("change");
-										RefreshLocaleNumberInput();
-										$(".input-group-productamountpicker").trigger("change");
-										ScanModeSubmit(false);
+										if (stockEntries && stockEntries.length > 0 && stockEntries[0])
+										{
+											OnLocationChange(stockEntries[0].location_id, gc[3], function() {
+												$('#display_amount').val(stockEntries[0].amount);
+												$('#display_amount').trigger("change");
+												RefreshLocaleNumberInput();
+												$(".input-group-productamountpicker").trigger("change");
+												ScanModeSubmit(false);
+											});
+										}
+										else
+										{
+											toastr.warning(__t("Stock entry not found for the scanned barcode"));
+											Grocy.UISound.Error();
+										}
 									},
 									function(xhr)
 									{
@@ -490,9 +503,29 @@ Grocy.Components.ProductPicker.GetPicker().on('change', function(e)
 
 				Grocy.Components.ProductPicker.HideCustomError();
 				Grocy.FrontendHelpers.ValidateForm('consume-form');
+
+				// In scan mode, keep focus on product picker if barcode provides complete info
+				var shouldFocusAmount = true;
+				if (BoolVal(Grocy.UserSettings.scan_mode_consume_enabled))
+				{
+					// Check if we have a Grocy code with stock entry ID or regular barcode
+					if (($("#product_id").data("grocycode") && $("#product_id").attr("barcode").split(":").length == 4) ||
+						(document.getElementById("product_id").getAttribute("barcode") != "null"))
+					{
+						shouldFocusAmount = false;
+					}
+				}
+
 				setTimeout(function()
 				{
-					$('#display_amount').focus();
+					if (shouldFocusAmount)
+					{
+						$('#display_amount').focus();
+					}
+					else
+					{
+						Grocy.Components.ProductPicker.GetInputElement().focus();
+					}
 				}, Grocy.FormFocusDelay);
 
 				if (productDetails.stock_amount == productDetails.stock_amount_opened || productDetails.product.enable_tare_weight_handling == 1 || productDetails.product.disable_open == 1)
