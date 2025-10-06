@@ -192,8 +192,6 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 		$targetInput.val(barcode);
 		$targetInput.trigger('input').trigger('change');
 		$targetInput.blur();
-		$targetInput.focus();
-		$targetInput.select();
 
 		// // Move focus to next input field
 		// setTimeout(() => {
