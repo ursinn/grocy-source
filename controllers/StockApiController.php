@@ -351,6 +351,211 @@ class StockApiController extends BaseApiController
 		}
 	}
 
+	public function ConsumeStockEntry(Request $request, Response $response, array $args)
+	{
+		User::checkPermission($request, User::PERMISSION_STOCK_CONSUME);
+
+		$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+
+		try
+		{
+			// Get the stock entry to find the product ID and current amount
+			$stockEntry = $this->getStockService()->GetStockEntry($args['entryId']);
+			if ($stockEntry === null)
+			{
+				throw new \Exception('Stock entry not found');
+			}
+
+			// Determine amount to consume
+			$amount = $stockEntry->amount; // Default to full amount
+			if ($requestBody !== null && array_key_exists('amount', $requestBody) && is_numeric($requestBody['amount']))
+			{
+				$amount = $requestBody['amount'];
+
+				// Validate that requested amount doesn't exceed available amount
+				if ($amount > $stockEntry->amount)
+				{
+					throw new \Exception('Cannot consume more than available stock (' . $stockEntry->amount . ')');
+				}
+			}
+
+			$spoiled = false;
+			if ($requestBody !== null && array_key_exists('spoiled', $requestBody))
+			{
+				$spoiled = $requestBody['spoiled'];
+			}
+
+			$transactionType = StockService::TRANSACTION_TYPE_CONSUME;
+			if ($requestBody !== null && array_key_exists('transaction_type', $requestBody) && !empty($requestBody['transaction_type']))
+			{
+				$transactionType = $requestBody['transaction_type'];
+			}
+
+			$recipeId = null;
+			if ($requestBody !== null && array_key_exists('recipe_id', $requestBody) && is_numeric($requestBody['recipe_id']))
+			{
+				$recipeId = $requestBody['recipe_id'];
+			}
+
+			$locationId = null;
+			if ($requestBody !== null && array_key_exists('location_id', $requestBody) && !empty($requestBody['location_id']) && is_numeric($requestBody['location_id']))
+			{
+				$locationId = $requestBody['location_id'];
+			}
+
+			// Use the specific stock entry ID
+			$specificStockEntryId = $args['entryId'];
+			$consumeExact = true; // Always consume exact amount for specific stock entries
+			$allowSubproductSubstitution = false; // Don't allow substitution when targeting specific entry
+
+			$transactionId = null;
+			$transactionId = $this->getStockService()->ConsumeProduct($stockEntry->product_id, $amount, $spoiled, $transactionType, $specificStockEntryId, $recipeId, $locationId, $transactionId, $allowSubproductSubstitution, $consumeExact);
+
+			$args['transactionId'] = $transactionId;
+			return $this->StockTransactions($request, $response, $args);
+		}
+		catch (\Exception $ex)
+		{
+			return $this->GenericErrorResponse($response, $ex->getMessage());
+		}
+	}
+
+	public function TransferStockEntry(Request $request, Response $response, array $args)
+	{
+		User::checkPermission($request, User::PERMISSION_STOCK_TRANSFER);
+
+		$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+
+		try
+		{
+			// Get the stock entry to find the product ID and current amount
+			$stockEntry = $this->getStockService()->GetStockEntry($args['entryId']);
+			if ($stockEntry === null)
+			{
+				throw new \Exception('Stock entry not found');
+			}
+
+			if ($requestBody === null)
+			{
+				throw new \Exception('Request body could not be parsed (probably invalid JSON format or missing/wrong Content-Type header)');
+			}
+
+			if (!array_key_exists('location_id_to', $requestBody))
+			{
+				throw new \Exception('A transfer to location is required');
+			}
+
+			// Determine amount to transfer
+			$amount = $stockEntry->amount; // Default to full amount
+			if (array_key_exists('amount', $requestBody) && is_numeric($requestBody['amount']))
+			{
+				$amount = $requestBody['amount'];
+
+				// Validate that requested amount doesn't exceed available amount
+				if ($amount > $stockEntry->amount)
+				{
+					throw new \Exception('Cannot transfer more than available stock (' . $stockEntry->amount . ')');
+				}
+			}
+
+			// The "from" location is the current location of the stock entry
+			$locationIdFrom = $stockEntry->location_id;
+			$locationIdTo = $requestBody['location_id_to'];
+
+			// Use the specific stock entry ID
+			$specificStockEntryId = $args['entryId'];
+
+			$transactionId = $this->getStockService()->TransferProduct($stockEntry->product_id, $amount, $locationIdFrom, $locationIdTo, $specificStockEntryId);
+			$args['transactionId'] = $transactionId;
+			return $this->StockTransactions($request, $response, $args);
+		}
+		catch (\Exception $ex)
+		{
+			return $this->GenericErrorResponse($response, $ex->getMessage());
+		}
+	}
+
+	public function InventoryStockEntry(Request $request, Response $response, array $args)
+	{
+		User::checkPermission($request, User::PERMISSION_STOCK_INVENTORY);
+
+		$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+
+		try
+		{
+			// Get the stock entry to find the product ID and current details
+			$stockEntry = $this->getStockService()->GetStockEntry($args['entryId']);
+			if ($stockEntry === null)
+			{
+				throw new \Exception('Stock entry not found');
+			}
+
+			if ($requestBody === null)
+			{
+				throw new \Exception('Request body could not be parsed (probably invalid JSON format or missing/wrong Content-Type header)');
+			}
+
+			if (!array_key_exists('new_amount', $requestBody))
+			{
+				throw new \Exception('A new amount is required');
+			}
+
+			$newAmount = $requestBody['new_amount'];
+
+			// Use existing values as defaults, allow overrides from request
+			$bestBeforeDate = $stockEntry->best_before_date;
+			if (array_key_exists('best_before_date', $requestBody) && IsIsoDate($requestBody['best_before_date']))
+			{
+				$bestBeforeDate = $requestBody['best_before_date'];
+			}
+
+			$purchasedDate = $stockEntry->purchased_date;
+			if (array_key_exists('purchased_date', $requestBody) && IsIsoDate($requestBody['purchased_date']))
+			{
+				$purchasedDate = $requestBody['purchased_date'];
+			}
+
+			$locationId = $stockEntry->location_id;
+			if (array_key_exists('location_id', $requestBody) && is_numeric($requestBody['location_id']))
+			{
+				$locationId = $requestBody['location_id'];
+			}
+
+			$price = $stockEntry->price;
+			if (array_key_exists('price', $requestBody) && is_numeric($requestBody['price']))
+			{
+				$price = $requestBody['price'];
+			}
+
+			$shoppingLocationId = $stockEntry->shopping_location_id;
+			if (array_key_exists('shopping_location_id', $requestBody) && is_numeric($requestBody['shopping_location_id']))
+			{
+				$shoppingLocationId = $requestBody['shopping_location_id'];
+			}
+
+			$stockLabelType = 0;
+			if (array_key_exists('stock_label_type', $requestBody) && is_numeric($requestBody['stock_label_type']))
+			{
+				$stockLabelType = intval($requestBody['stock_label_type']);
+			}
+
+			$note = null;
+			if (array_key_exists('note', $requestBody))
+			{
+				$note = $requestBody['note'];
+			}
+
+			// Use the new InventoryStockEntry method to update only this specific stock entry
+			$transactionId = $this->getStockService()->InventoryStockEntry($args['entryId'], $newAmount, $bestBeforeDate, $locationId, $price, $shoppingLocationId, $purchasedDate, $stockLabelType, $note);
+			$args['transactionId'] = $transactionId;
+			return $this->StockTransactions($request, $response, $args);
+		}
+		catch (\Exception $ex)
+		{
+			return $this->GenericErrorResponse($response, $ex->getMessage());
+		}
+	}
+
 	public function CurrentStock(Request $request, Response $response, array $args)
 	{
 		return $this->ApiResponse($response, $this->getStockService()->GetCurrentStock());

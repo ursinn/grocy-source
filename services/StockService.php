@@ -893,7 +893,109 @@ class StockService extends BaseService
 
 	public function GetStockEntry($entryId)
 	{
-		return $this->getDatabase()->stock()->where('id', $entryId)->fetch();
+		// Try to find by stock_id first (UUID), then fall back to database id (integer)
+		$stockEntry = $this->getDatabase()->stock()->where('stock_id', $entryId)->fetch();
+		if ($stockEntry === null && is_numeric($entryId))
+		{
+			$stockEntry = $this->getDatabase()->stock()->where('id', $entryId)->fetch();
+		}
+		return $stockEntry;
+	}
+
+	public function InventoryStockEntry($stockEntryId, float $newAmount, $bestBeforeDate = null, $locationId = null, $price = null, $shoppingLocationId = null, $purchasedDate = null, $stockLabelType = 0, $note = null)
+	{
+		$stockEntry = $this->GetStockEntry($stockEntryId);
+		if ($stockEntry === null)
+		{
+			throw new \Exception('Stock entry does not exist');
+		}
+
+		// Use existing values as defaults if not provided
+		if ($bestBeforeDate === null)
+		{
+			$bestBeforeDate = $stockEntry->best_before_date;
+		}
+		if ($locationId === null)
+		{
+			$locationId = $stockEntry->location_id;
+		}
+		if ($price === null)
+		{
+			$price = $stockEntry->price;
+		}
+		if ($shoppingLocationId === null)
+		{
+			$shoppingLocationId = $stockEntry->shopping_location_id;
+		}
+		if ($purchasedDate === null)
+		{
+			$purchasedDate = $stockEntry->purchased_date;
+		}
+
+		$transactionId = uniqid();
+		$currentAmount = $stockEntry->amount;
+		$amountDifference = $newAmount - $currentAmount;
+
+		// Create transaction log entry
+		$logRow = $this->getDatabase()->stock_log()->createRow([
+			'product_id' => $stockEntry->product_id,
+			'amount' => $amountDifference,
+			'best_before_date' => $bestBeforeDate,
+			'purchased_date' => $purchasedDate,
+			'used_date' => date('Y-m-d'),
+			'spoiled' => 0,
+			'stock_id' => $stockEntry->stock_id,
+			'transaction_type' => self::TRANSACTION_TYPE_INVENTORY_CORRECTION,
+			'price' => $price,
+			'opened_date' => $stockEntry->opened_date,
+			'location_id' => $locationId,
+			'recipe_id' => null,
+			'correlation_id' => null,
+			'transaction_id' => $transactionId,
+			'stock_row_id' => null,
+			'shopping_location_id' => $shoppingLocationId,
+			'user_id' => GROCY_USER_ID,
+			'note' => $note
+		]);
+		$logRow->save();
+
+		// Update the stock entry
+		$stockEntry->update([
+			'amount' => $newAmount,
+			'best_before_date' => $bestBeforeDate,
+			'location_id' => $locationId,
+			'price' => $price,
+			'shopping_location_id' => $shoppingLocationId,
+			'purchased_date' => $purchasedDate,
+			'note' => $note
+		]);
+
+		// Handle label printing if requested
+		if ($stockLabelType === 1 && GROCY_FEATURE_FLAG_LABEL_PRINTER)
+		{
+			$productDetails = (object)$this->GetProductDetails($stockEntry->product_id);
+			$stockEntryUserfields = $this->getUserfieldsService()->GetValues('stock', $stockEntry->stock_id);
+
+			$webhookData = array_merge([
+				'product' => $productDetails->product->name,
+				'grocycode' => (string)(new Grocycode(Grocycode::PRODUCT, $stockEntry->product_id, [$stockEntry->stock_id])),
+				'details' => $productDetails,
+				'stock_entry' => $stockEntry,
+				'stock_entry_userfields' => $stockEntryUserfields,
+			], GROCY_LABEL_PRINTER_PARAMS);
+
+			if (GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING)
+			{
+				$webhookData['due_date'] = $this->getLocalizationService()->__t('DD') . ': ' . $stockEntry->best_before_date;
+			}
+
+			if (GROCY_LABEL_PRINTER_RUN_SERVER)
+			{
+				(new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+			}
+		}
+
+		return $transactionId;
 	}
 
 	public function InventoryProduct(int $productId, float $newAmount, $bestBeforeDate, $locationId = null, $price = null, $shoppingLocationId = null, $purchasedDate = null, $stockLabelType = 0, $note = null)

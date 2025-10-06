@@ -1593,6 +1593,251 @@
 				}
 			}
 		},
+		"/stock/entry/{entryId}/consume": {
+			"post": {
+				"summary": "Removes the given amount of the specific stock entry from stock",
+				"tags": [
+					"Stock"
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "entryId",
+						"required": true,
+						"description": "A valid stock entry id",
+						"schema": {
+							"type": "integer"
+						}
+					}
+				],
+				"requestBody": {
+					"required": false,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"amount": {
+										"type": "number",
+										"description": "The amount to remove - if not specified, the entire stock entry amount will be consumed"
+									},
+									"transaction_type": {
+										"$ref": "#/components/schemas/StockTransactionType"
+									},
+									"spoiled": {
+										"type": "boolean",
+										"description": "True when the given product was spoiled, defaults to false"
+									},
+									"recipe_id": {
+										"type": "integer",
+										"description": "A valid recipe id for which this product was used (for statistical purposes only)"
+									},
+									"location_id": {
+										"type": "integer",
+										"description": "A valid location id (if supplied, only stock at the given location is considered, if ommitted, stock of any location is considered)"
+									}
+								},
+								"example": {
+									"amount": 1,
+									"transaction_type": "consume",
+									"spoiled": false
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The operation was successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/StockLogEntry"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The operation was not successful (possible errors are: Not existing stock entry, amount exceeds available stock)",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error400"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/stock/entry/{entryId}/transfer": {
+			"post": {
+				"summary": "Transfers the given amount of the specific stock entry to another location",
+				"tags": [
+					"Stock"
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "entryId",
+						"required": true,
+						"description": "A valid stock entry id",
+						"schema": {
+							"type": "integer"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": ["location_id_to"],
+								"properties": {
+									"amount": {
+										"type": "number",
+										"description": "The amount to transfer - if not specified, the entire stock entry amount will be transferred"
+									},
+									"location_id_to": {
+										"type": "integer",
+										"description": "A valid location id where the product should be moved to"
+									}
+								},
+								"example": {
+									"amount": 1,
+									"location_id_to": 2
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The operation was successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/StockLogEntry"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The operation was not successful (possible errors are: Not existing stock entry, not existing location, amount exceeds available stock)",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error400"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/stock/entry/{entryId}/inventory": {
+			"post": {
+				"summary": "Performs an inventory correction for the specific stock entry",
+				"tags": [
+					"Stock"
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "entryId",
+						"required": true,
+						"description": "A valid stock entry id",
+						"schema": {
+							"type": "integer"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": ["new_amount"],
+								"properties": {
+									"new_amount": {
+										"type": "number",
+										"description": "The new amount of the product after the inventory was done"
+									},
+									"best_before_date": {
+										"type": "string",
+										"format": "date",
+										"description": "The new best before date of the product, if omitted, the current value is kept"
+									},
+									"purchased_date": {
+										"type": "string",
+										"format": "date",
+										"description": "The new purchased date of the product, if omitted, the current value is kept"
+									},
+									"location_id": {
+										"type": "integer",
+										"description": "The new location id of the product, if omitted, the current value is kept"
+									},
+									"price": {
+										"type": "number",
+										"description": "The new price per stock quantity unit of the product, if omitted, the current value is kept"
+									},
+									"shopping_location_id": {
+										"type": "integer",
+										"description": "The new shopping location where the product was bought, if omitted, the current value is kept"
+									},
+									"stock_label_type": {
+										"type": "integer",
+										"description": "The label type (1 = print label for this stock entry immediately when this endpoint is called, 0 = do not print), if omitted, no label will be printed"
+									},
+									"note": {
+										"type": "string",
+										"description": "A note for this inventory entry"
+									}
+								},
+								"example": {
+									"new_amount": 10,
+									"best_before_date": "2024-12-31",
+									"price": 2.99
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The operation was successful",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/StockLogEntry"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The operation was not successful (possible errors are: Not existing stock entry, not existing product, not existing location)",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error400"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"/stock/volatile": {
 			"get": {
 				"summary": "Returns all products which are due soon, overdue, expired or currently missing",
