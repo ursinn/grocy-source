@@ -475,6 +475,19 @@
 						</li>
 					</ul>
 				</li>
+				@if(GROCY_FEATURE_FLAG_STOCK)
+				<div class="nav-item-divider"></div>
+				<li class="nav-item nav-item-sidebar @if($viewName == 'livescreen') active-page @endif"
+					data-toggle="tooltip"
+					data-placement="right"
+					title="{{ $__t('Live Screen') }}">
+					<a class="nav-link discrete-link"
+						href="{{ $U('/livescreen') }}">
+						<i class="fa-solid fa-fw fa-tv"></i>
+						<span class="nav-link-text">{{ $__t('Live Screen') }}</span>
+					</a>
+				</li>
+				@endif
 			</ul>
 
 			<ul class="navbar-nav sidenav-toggler">

@@ -193,7 +193,7 @@ class StockService extends BaseService
 				for ($i = 1; $i <= $amount; $i++)
 				{
 					$stockId = uniqid('x');
-					$logRow = $this->getDatabase()->stock_log()->createRow([
+					$logRow = $this->createStockLogEntry([
 						'product_id' => $productId,
 						'amount' => 1,
 						'best_before_date' => $bestBeforeDate,
@@ -207,7 +207,6 @@ class StockService extends BaseService
 						'user_id' => GROCY_USER_ID,
 						'note' => $note
 					]);
-					$logRow->save();
 
 					$stockRow = $this->getDatabase()->stock()->createRow([
 						'product_id' => $productId,
@@ -246,7 +245,7 @@ class StockService extends BaseService
 				// No or single label => one stock entry
 
 				$stockId = uniqid();
-				$logRow = $this->getDatabase()->stock_log()->createRow([
+				$logRow = $this->createStockLogEntry([
 					'product_id' => $productId,
 					'amount' => $amount,
 					'best_before_date' => $bestBeforeDate,
@@ -260,7 +259,6 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $note
 				]);
-				$logRow->save();
 
 				$stockRow = $this->getDatabase()->stock()->createRow([
 					'product_id' => $productId,
@@ -448,7 +446,7 @@ class StockService extends BaseService
 				if ($amount >= $stockEntry->amount)
 				{
 					// Take the whole stock entry
-					$logRow = $this->getDatabase()->stock_log()->createRow([
+					$logRow = $this->createStockLogEntry([
 						'product_id' => $stockEntry->product_id,
 						'amount' => $stockEntry->amount * -1,
 						'best_before_date' => $stockEntry->best_before_date,
@@ -465,7 +463,6 @@ class StockService extends BaseService
 						'location_id' => $stockEntry->location_id,
 						'note' => $stockEntry->note
 					]);
-					$logRow->save();
 
 					// Only delete if stock entry has no userfields, otherwise set amount to 0
 					if ($this->StockEntryHasUserfields($stockEntry->stock_id))
@@ -491,7 +488,7 @@ class StockService extends BaseService
 					// Stock entry amount is > than needed amount -> split the stock entry resp. update the amount
 					$restStockAmount = $stockEntry->amount - $amount;
 
-					$logRow = $this->getDatabase()->stock_log()->createRow([
+					$logRow = $this->createStockLogEntry([
 						'product_id' => $stockEntry->product_id,
 						'amount' => $amount * -1,
 						'best_before_date' => $stockEntry->best_before_date,
@@ -508,7 +505,6 @@ class StockService extends BaseService
 						'location_id' => $stockEntry->location_id,
 						'note' => $stockEntry->note
 					]);
-					$logRow->save();
 
 					$stockEntry->update([
 						'amount' => $restStockAmount
@@ -541,7 +537,7 @@ class StockService extends BaseService
 
 		$correlationId = uniqid();
 		$transactionId = uniqid();
-		$logOldRowForStockUpdate = $this->getDatabase()->stock_log()->createRow([
+		$logOldRowForStockUpdate = $this->createStockLogEntry([
 			'product_id' => $stockRow->product_id,
 			'amount' => $stockRow->amount,
 			'best_before_date' => $stockRow->best_before_date,
@@ -558,7 +554,6 @@ class StockService extends BaseService
 			'user_id' => GROCY_USER_ID,
 			'note' => $stockRow->note
 		]);
-		$logOldRowForStockUpdate->save();
 
 		$openedDate = $stockRow->opened_date;
 		if (boolval($open) && $openedDate == null)
@@ -582,7 +577,7 @@ class StockService extends BaseService
 			'note' => $note
 		]);
 
-		$logNewRowForStockUpdate = $this->getDatabase()->stock_log()->createRow([
+		$logNewRowForStockUpdate = $this->createStockLogEntry([
 			'product_id' => $stockRow->product_id,
 			'amount' => $amount,
 			'best_before_date' => $bestBeforeDate,
@@ -599,7 +594,6 @@ class StockService extends BaseService
 			'user_id' => GROCY_USER_ID,
 			'note' => $stockRow->note
 		]);
-		$logNewRowForStockUpdate->save();
 
 		$this->CompactStockEntries($stockRow->product_id);
 
@@ -937,7 +931,7 @@ class StockService extends BaseService
 		$amountDifference = $newAmount - $currentAmount;
 
 		// Create transaction log entry
-		$logRow = $this->getDatabase()->stock_log()->createRow([
+		$logRow = $this->createStockLogEntry([
 			'product_id' => $stockEntry->product_id,
 			'amount' => $amountDifference,
 			'best_before_date' => $bestBeforeDate,
@@ -957,7 +951,6 @@ class StockService extends BaseService
 			'user_id' => GROCY_USER_ID,
 			'note' => $note
 		]);
-		$logRow->save();
 
 		// Update the stock entry
 		$stockEntry->update([
@@ -1151,7 +1144,7 @@ class StockService extends BaseService
 			if ($amount >= $stockEntry->amount)
 			{
 				// Mark the whole stock entry as opened
-				$logRow = $this->getDatabase()->stock_log()->createRow([
+				$logRow = $this->createStockLogEntry([
 					'product_id' => $stockEntry->product_id,
 					'amount' => $stockEntry->amount,
 					'best_before_date' => $stockEntry->best_before_date,
@@ -1166,7 +1159,6 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $stockEntry->note
 				]);
-				$logRow->save();
 
 				$stockEntry->update([
 					'open' => 1,
@@ -1194,7 +1186,7 @@ class StockService extends BaseService
 				]);
 				$newStockRow->save();
 
-				$logRow = $this->getDatabase()->stock_log()->createRow([
+				$logRow = $this->createStockLogEntry([
 					'product_id' => $stockEntry->product_id,
 					'amount' => $amount,
 					'best_before_date' => $stockEntry->best_before_date,
@@ -1209,7 +1201,6 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $stockEntry->note
 				]);
-				$logRow->save();
 
 				$stockEntry->update([
 					'amount' => $amount,
@@ -1455,7 +1446,7 @@ class StockService extends BaseService
 			if ($amount >= $stockEntry->amount)
 			{
 				// Take the whole stock entry
-				$logRowForLocationFrom = $this->getDatabase()->stock_log()->createRow([
+				$logRowForLocationFrom = $this->createStockLogEntry([
 					'product_id' => $stockEntry->product_id,
 					'amount' => $stockEntry->amount * -1,
 					'best_before_date' => $stockEntry->best_before_date,
@@ -1471,9 +1462,8 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $stockEntry->note
 				]);
-				$logRowForLocationFrom->save();
 
-				$logRowForLocationTo = $this->getDatabase()->stock_log()->createRow([
+				$logRowForLocationTo = $this->createStockLogEntry([
 					'product_id' => $stockEntry->product_id,
 					'amount' => $stockEntry->amount,
 					'best_before_date' => $newBestBeforeDate,
@@ -1489,7 +1479,6 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $stockEntry->note
 				]);
-				$logRowForLocationTo->save();
 
 				$stockEntry->update([
 					'location_id' => $locationIdTo,
@@ -1503,7 +1492,7 @@ class StockService extends BaseService
 				// Stock entry amount is > than needed amount -> split the stock entry resp. update the amount
 				$restStockAmount = $stockEntry->amount - $amount;
 
-				$logRowForLocationFrom = $this->getDatabase()->stock_log()->createRow([
+				$logRowForLocationFrom = $this->createStockLogEntry([
 					'product_id' => $stockEntry->product_id,
 					'amount' => $amount * -1,
 					'best_before_date' => $stockEntry->best_before_date,
@@ -1519,9 +1508,8 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $stockEntry->note
 				]);
-				$logRowForLocationFrom->save();
 
-				$logRowForLocationTo = $this->getDatabase()->stock_log()->createRow([
+				$logRowForLocationTo = $this->createStockLogEntry([
 					'product_id' => $stockEntry->product_id,
 					'amount' => $amount,
 					'best_before_date' => $newBestBeforeDate,
@@ -1537,7 +1525,6 @@ class StockService extends BaseService
 					'user_id' => GROCY_USER_ID,
 					'note' => $stockEntry->note
 				]);
-				$logRowForLocationTo->save();
 
 				// This is the existing stock entry -> remains at the source location with the rest amount
 				$stockEntry->update([
@@ -1766,6 +1753,13 @@ class StockService extends BaseService
 		{
 			throw new \Exception('This booking cannot be undone');
 		}
+
+		// Publish live event indicating this transaction was undone
+		// This will tell connected clients to mark the original item as undone
+		\Grocy\Helpers\LiveEventManager::publishEvent('stock_undo', [
+			'booking_id' => $logRow->id,
+			'undone_timestamp' => $logRow->undone_timestamp
+		]);
 	}
 
 	public function UndoTransaction($transactionId)
@@ -1947,6 +1941,71 @@ class StockService extends BaseService
 			}
 		} else {
 			$stockEntry->update(['amount' => $newAmount]);
+		}
+	}
+
+	private function createStockLogEntry($data)
+	{
+		// Create and save stock log entry
+		$logRow = $this->getDatabase()->stock_log()->createRow($data);
+		$logRow->save();
+
+		// Refresh the row to get auto-generated values like row_created_timestamp
+		$logRow = $this->getDatabase()->stock_log($logRow->id);
+
+		// Publish live event
+		$this->publishStockActivityEvent($logRow);
+
+		return $logRow;
+	}
+
+	private function publishStockActivityEvent($stockLogEntry)
+	{
+		try {
+			// Get product name
+			$product = $this->getDatabase()->products($stockLogEntry->product_id);
+			$productName = $product ? $product->name : 'Unknown Product';
+
+			// Get location name if available
+			$locationName = null;
+			if ($stockLogEntry->location_id) {
+				$location = $this->getDatabase()->locations($stockLogEntry->location_id);
+				$locationName = $location ? $location->name : null;
+			}
+
+			// Get quantity unit names if available
+			$quantityUnitName = null;
+			$quantityUnitNamePlural = null;
+			if ($product && $product->qu_id_stock) {
+				$quantityUnit = $this->getDatabase()->quantity_units($product->qu_id_stock);
+				if ($quantityUnit) {
+					$quantityUnitName = $quantityUnit->name;
+					$quantityUnitNamePlural = $quantityUnit->name_plural;
+				}
+			}
+
+			// Get current stock amount and next due date
+			$currentAmount = 0;
+			$nextDueDate = null;
+			$currentStock = $this->GetCurrentStock("WHERE product_id = " . $stockLogEntry->product_id);
+			if (!empty($currentStock)) {
+				$currentAmount = $currentStock[0]->amount ?? 0;
+				$nextDueDate = $currentStock[0]->best_before_date ?? null;
+			}
+
+			// Publish the event
+			\Grocy\Helpers\LiveEventManager::publishStockActivity(
+				$stockLogEntry,
+				$productName,
+				$locationName,
+				$quantityUnitName,
+				$quantityUnitNamePlural,
+				$currentAmount,
+				$nextDueDate
+			);
+		} catch (\Exception $e) {
+			// Don't let event publishing errors break stock operations
+			error_log('Failed to publish stock activity event: ' . $e->getMessage());
 		}
 	}
 }

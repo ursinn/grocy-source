@@ -121,6 +121,9 @@ $app->group('', function (RouteCollectorProxy $group)
 	// Calendar routes
 	$group->get('/calendar', '\Grocy\Controllers\CalendarController:Overview');
 
+	// Live Screen routes
+	$group->get('/livescreen', '\Grocy\Controllers\LiveScreenController:LiveScreen');
+
 	// OpenAPI routes
 	$group->get('/api', '\Grocy\Controllers\OpenApiController:DocumentationUi');
 	$group->get('/manageapikeys', '\Grocy\Controllers\OpenApiController:ApiKeysList');
@@ -247,6 +250,9 @@ $app->group('/api', function (RouteCollectorProxy $group)
 	// Calendar
 	$group->get('/calendar/ical', '\Grocy\Controllers\CalendarApiController:Ical')->setName('calendar-ical');
 	$group->get('/calendar/ical/sharing-link', '\Grocy\Controllers\CalendarApiController:IcalSharingLink');
+
+	// Live Activity
+	$group->get('/live-activity', '\Grocy\Controllers\LiveActivityApiController:LiveActivityStream');
 })->add(JsonMiddleware::class);
 
 // Handle CORS preflight OPTIONS requests

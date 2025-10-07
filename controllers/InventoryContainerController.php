@@ -60,7 +60,7 @@ class InventoryContainerController extends BaseController
 
 	private function createStockLogEntry($data)
 	{
-		return $this->getDatabase()->stock_log()->createRow($data)->save();
+		return $this->getStockService()->createStockLogEntry($data);
 	}
 
 	private function handleStockIncrease($requestBody, $productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId)
