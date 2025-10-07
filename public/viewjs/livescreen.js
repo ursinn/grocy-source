@@ -176,11 +176,7 @@ $(document).ready(function() {
 		if (!dateString) return 'Just now';
 
 		const now = new Date();
-
-		// Database stores UTC time, but the string format doesn't have timezone info
-		// Treat the timestamp as UTC and convert to local time
-		const utcString = dateString.replace(' ', 'T') + 'Z'; // Add 'Z' to indicate UTC
-		const activityDate = new Date(utcString);
+		const activityDate = new Date(dateString);
 
 		const diffMs = now - activityDate;
 		const diffSecs = Math.floor(diffMs / 1000);
@@ -197,8 +193,7 @@ $(document).ready(function() {
 		if (!dateString) return false;
 
 		const now = new Date();
-		const utcString = dateString.replace(' ', 'T') + 'Z';
-		const activityDate = new Date(utcString);
+		const activityDate = new Date(dateString);
 		const diffMs = now - activityDate;
 		const diffSecs = Math.floor(diffMs / 1000);
 

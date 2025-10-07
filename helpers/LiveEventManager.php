@@ -203,27 +203,5 @@ class LiveEventManager
 		return $lines;
 	}
 
-	public static function publishStockActivity($stockLogEntry, $productName, $locationName = null, $quantityUnitName = null, $quantityUnitNamePlural = null, $currentAmount = null, $nextDueDate = null, $nextDueDateAmount = null)
-	{
-		$data = [
-			'id' => $stockLogEntry->id,
-			'transaction_type' => $stockLogEntry->transaction_type,
-			'product_id' => $stockLogEntry->product_id,
-			'product_name' => $productName,
-			'amount' => $stockLogEntry->amount,
-			'current_amount' => $currentAmount,
-			'next_due_date' => $nextDueDate,
-			'next_due_date_amount' => $nextDueDateAmount,
-			'location_id' => $stockLogEntry->location_id,
-			'location_name' => $locationName,
-			'qu_name' => $quantityUnitName,
-			'qu_name_plural' => $quantityUnitNamePlural,
-			'row_created_timestamp' => $stockLogEntry->row_created_timestamp,
-			'undone' => $stockLogEntry->undone,
-			'undone_timestamp' => $stockLogEntry->undone_timestamp
-		];
-
-		self::publishEvent('stock_activity', $data);
-	}
 
 }

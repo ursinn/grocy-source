@@ -2035,17 +2035,26 @@ class StockService extends BaseService
 			}
 
 
-			// Publish the event
-			\Grocy\Helpers\LiveEventManager::publishStockActivity(
-				$stockLogEntry,
-				$productName,
-				$locationName,
-				$quantityUnitName,
-				$quantityUnitNamePlural,
-				$currentAmount,
-				$nextDueDate,
-				$nextDueDateAmount
-			);
+			// Publish the event directly
+			$data = [
+				'id' => $stockLogEntry->id,
+				'transaction_type' => $stockLogEntry->transaction_type,
+				'product_id' => $stockLogEntry->product_id,
+				'product_name' => $productName,
+				'amount' => $stockLogEntry->amount,
+				'current_amount' => $currentAmount,
+				'next_due_date' => $nextDueDate,
+				'next_due_date_amount' => $nextDueDateAmount,
+				'location_id' => $stockLogEntry->location_id,
+				'location_name' => $locationName,
+				'qu_name' => $quantityUnitName,
+				'qu_name_plural' => $quantityUnitNamePlural,
+				'row_created_timestamp' => $stockLogEntry->row_created_timestamp ? (new \DateTime($stockLogEntry->row_created_timestamp))->setTimezone(new \DateTimeZone('UTC'))->format('c') : null,
+				'undone' => $stockLogEntry->undone,
+				'undone_timestamp' => $stockLogEntry->undone_timestamp ? (new \DateTime($stockLogEntry->undone_timestamp))->setTimezone(new \DateTimeZone('UTC'))->format('c') : null
+			];
+
+			\Grocy\Helpers\LiveEventManager::publishEvent('stock_activity', $data);
 		} catch (\Exception $e) {
 			// Don't let event publishing errors break stock operations
 			error_log('Failed to publish stock activity event: ' . $e->getMessage());
