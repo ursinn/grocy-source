@@ -165,6 +165,19 @@ class StockApiController extends BaseApiController
 		try
 		{
 			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
+
+			// If no amount provided, use the configured barcode amount
+			$requestBody = $request->getParsedBody();
+			if ($requestBody === null || !array_key_exists('amount', $requestBody) || empty($requestBody['amount']))
+			{
+				$defaultAmount = $this->getStockService()->GetBarcodeAmount($args['barcode']);
+				if ($requestBody === null) {
+					$requestBody = [];
+				}
+				$requestBody['amount'] = $defaultAmount;
+				$request = $request->withParsedBody($requestBody);
+			}
+
 			return $this->AddProduct($request, $response, $args);
 		}
 		catch (\Exception $ex)
@@ -330,17 +343,29 @@ class StockApiController extends BaseApiController
 	{
 		try
 		{
-			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
-
+			// Check if this is a Grocycode with stock entry ID - redirect to stock entry endpoint
 			if (Grocycode::Validate($args['barcode']))
 			{
 				$gc = new Grocycode($args['barcode']);
-				if ($gc->GetExtraData())
+				if ($gc->GetExtraData() && !empty($gc->GetExtraData()[0]))
 				{
-					$requestBody = $request->getParsedBody();
-					$requestBody['stock_entry_id'] = $gc->GetExtraData()[0];
-					$request = $request->withParsedBody($requestBody);
+					$args['entryId'] = $gc->GetExtraData()[0];
+					return $this->ConsumeStockEntry($request, $response, $args);
 				}
+			}
+
+			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
+
+			// If no amount provided, use the configured barcode amount
+			$requestBody = $request->getParsedBody();
+			if ($requestBody === null || !array_key_exists('amount', $requestBody) || empty($requestBody['amount']))
+			{
+				$defaultAmount = $this->getStockService()->GetBarcodeAmount($args['barcode']);
+				if ($requestBody === null) {
+					$requestBody = [];
+				}
+				$requestBody['amount'] = $defaultAmount;
+				$request = $request->withParsedBody($requestBody);
 			}
 
 			return $this->ConsumeProduct($request, $response, $args);
@@ -556,6 +581,51 @@ class StockApiController extends BaseApiController
 		}
 	}
 
+	public function OpenStockEntry(Request $request, Response $response, array $args)
+	{
+		User::checkPermission($request, User::PERMISSION_STOCK_OPEN);
+
+		$requestBody = $this->GetParsedAndFilteredRequestBody($request);
+
+		try
+		{
+			// Get the stock entry to find the product ID
+			$stockEntry = $this->getStockService()->GetStockEntry($args['entryId']);
+			if ($stockEntry === null)
+			{
+				throw new \Exception('Stock entry not found');
+			}
+
+			// Determine amount to open - default to full amount of the stock entry
+			$amount = $stockEntry->amount;
+			if ($requestBody !== null && array_key_exists('amount', $requestBody) && is_numeric($requestBody['amount']))
+			{
+				$amount = $requestBody['amount'];
+
+				// Validate that requested amount doesn't exceed available amount
+				if ($amount > $stockEntry->amount)
+				{
+					throw new \Exception('Cannot open more than available stock (' . $stockEntry->amount . ')');
+				}
+			}
+
+			$allowSubproductSubstitution = false;
+			if ($requestBody !== null && array_key_exists('allow_subproduct_substitution', $requestBody))
+			{
+				$allowSubproductSubstitution = $requestBody['allow_subproduct_substitution'];
+			}
+
+			$transactionId = null;
+			$transactionId = $this->getStockService()->OpenProduct($stockEntry->product_id, $amount, $args['entryId'], $transactionId, $allowSubproductSubstitution);
+			$args['transactionId'] = $transactionId;
+			return $this->StockTransactions($request, $response, $args);
+		}
+		catch (\Exception $ex)
+		{
+			return $this->GenericErrorResponse($response, $ex->getMessage());
+		}
+	}
+
 	public function CurrentStock(Request $request, Response $response, array $args)
 	{
 		return $this->ApiResponse($response, $this->getStockService()->GetCurrentStock());
@@ -734,6 +804,17 @@ class StockApiController extends BaseApiController
 	{
 		try
 		{
+			// Check if this is a Grocycode with stock entry ID - redirect to stock entry endpoint
+			if (Grocycode::Validate($args['barcode']))
+			{
+				$gc = new Grocycode($args['barcode']);
+				if ($gc->GetExtraData() && !empty($gc->GetExtraData()[0]))
+				{
+					$args['entryId'] = $gc->GetExtraData()[0];
+					return $this->InventoryStockEntry($request, $response, $args);
+				}
+			}
+
 			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
 			return $this->InventoryProduct($request, $response, $args);
 		}
@@ -788,17 +869,29 @@ class StockApiController extends BaseApiController
 	{
 		try
 		{
-			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
-
+			// Check if this is a Grocycode with stock entry ID - redirect to stock entry endpoint
 			if (Grocycode::Validate($args['barcode']))
 			{
 				$gc = new Grocycode($args['barcode']);
-				if ($gc->GetExtraData())
+				if ($gc->GetExtraData() && !empty($gc->GetExtraData()[0]))
 				{
-					$requestBody = $request->getParsedBody();
-					$requestBody['stock_entry_id'] = $gc->GetExtraData()[0];
-					$request = $request->withParsedBody($requestBody);
+					$args['entryId'] = $gc->GetExtraData()[0];
+					return $this->OpenStockEntry($request, $response, $args);
 				}
+			}
+
+			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
+
+			// If no amount provided, use the configured barcode amount
+			$requestBody = $request->getParsedBody();
+			if ($requestBody === null || !array_key_exists('amount', $requestBody) || empty($requestBody['amount']))
+			{
+				$defaultAmount = $this->getStockService()->GetBarcodeAmount($args['barcode']);
+				if ($requestBody === null) {
+					$requestBody = [];
+				}
+				$requestBody['amount'] = $defaultAmount;
+				$request = $request->withParsedBody($requestBody);
 			}
 
 			return $this->OpenProduct($request, $response, $args);
@@ -1064,17 +1157,29 @@ class StockApiController extends BaseApiController
 	{
 		try
 		{
-			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
-
+			// Check if this is a Grocycode with stock entry ID - redirect to stock entry endpoint
 			if (Grocycode::Validate($args['barcode']))
 			{
 				$gc = new Grocycode($args['barcode']);
-				if ($gc->GetExtraData())
+				if ($gc->GetExtraData() && !empty($gc->GetExtraData()[0]))
 				{
-					$requestBody = $request->getParsedBody();
-					$requestBody['stock_entry_id'] = $gc->GetExtraData()[0];
-					$request = $request->withParsedBody($requestBody);
+					$args['entryId'] = $gc->GetExtraData()[0];
+					return $this->TransferStockEntry($request, $response, $args);
 				}
+			}
+
+			$args['productId'] = $this->getStockService()->GetProductIdFromBarcode($args['barcode']);
+
+			// If no amount provided, use the configured barcode amount
+			$requestBody = $request->getParsedBody();
+			if ($requestBody === null || !array_key_exists('amount', $requestBody) || empty($requestBody['amount']))
+			{
+				$defaultAmount = $this->getStockService()->GetBarcodeAmount($args['barcode']);
+				if ($requestBody === null) {
+					$requestBody = [];
+				}
+				$requestBody['amount'] = $defaultAmount;
+				$request = $request->withParsedBody($requestBody);
 			}
 
 			return $this->TransferProduct($request, $response, $args);

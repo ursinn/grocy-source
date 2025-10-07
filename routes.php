@@ -180,6 +180,7 @@ $app->group('/api', function (RouteCollectorProxy $group)
 	$group->post('/stock/entry/{entryId}/consume', '\Grocy\Controllers\StockApiController:ConsumeStockEntry');
 	$group->post('/stock/entry/{entryId}/transfer', '\Grocy\Controllers\StockApiController:TransferStockEntry');
 	$group->post('/stock/entry/{entryId}/inventory', '\Grocy\Controllers\StockApiController:InventoryStockEntry');
+	$group->post('/stock/entry/{entryId}/open', '\Grocy\Controllers\StockApiController:OpenStockEntry');
 	$group->get('/stock/volatile', '\Grocy\Controllers\StockApiController:CurrentVolatileStock');
 	$group->get('/stock/products/{productId}', '\Grocy\Controllers\StockApiController:ProductDetails');
 	$group->get('/stock/products/{productId}/entries', '\Grocy\Controllers\StockApiController:ProductStockEntries');

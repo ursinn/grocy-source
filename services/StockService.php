@@ -818,6 +818,37 @@ class StockService extends BaseService
 		return $potentialProduct->product_id;
 	}
 
+	public function GetBarcodeAmount(string $barcode)
+	{
+		// first, try to parse this as a product Grocycode (Grocycodes don't have configured amounts)
+		if (Grocycode::Validate($barcode))
+		{
+			// For Grocycodes without stock entry ID, get the product's default consume amount
+			$gc = new Grocycode($barcode);
+			if ($gc->GetType() != Grocycode::PRODUCT)
+			{
+				throw new \Exception('Invalid Grocycode');
+			}
+
+			$product = $this->getDatabase()->products($gc->GetId());
+			if ($product === null)
+			{
+				throw new \Exception('Product not found');
+			}
+
+			return floatval($product->quick_consume_amount);
+		}
+
+		$potentialProduct = $this->getDatabase()->product_barcodes()->where('barcode = :1 COLLATE NOCASE', $barcode)->fetch();
+		if ($potentialProduct === null)
+		{
+			throw new \Exception("No product with barcode $barcode found");
+		}
+
+		// Return the configured amount or default to 1 if not set
+		return $potentialProduct->amount ? floatval($potentialProduct->amount) : 1;
+	}
+
 	public function GetProductPriceHistory(int $productId)
 	{
 		if (!$this->ProductExists($productId))
