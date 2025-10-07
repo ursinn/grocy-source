@@ -233,3 +233,6 @@ Setting('HOMEASSISTANT_HELPER_URL', ''); // Default Home Assistant URL
 Setting('HOMEASSISTANT_HELPER_LONG_LIVED_TOKEN', ''); // Default long-lived access token
 Setting('HOMEASSISTANT_HELPER_MODULES_ENABLED', '{}'); // Default enabled modules as JSON string
 Setting('HOMEASSISTANT_HELPER_MODULES_CONFIG', '{}'); // Default module configurations as JSON string
+
+// Webhook settings
+Setting('WEBHOOKS_CONFIG', '[]'); // Webhook configuration as JSON array - empty means disabled

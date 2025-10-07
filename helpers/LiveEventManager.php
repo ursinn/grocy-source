@@ -22,6 +22,14 @@ class LiveEventManager
 			'timestamp' => microtime(true)
 		];
 
+		// Trigger webhooks
+		try {
+			$webhookService = \Grocy\Services\WebhookService::getInstance();
+			$webhookService->triggerWebhooks($type, $data);
+		} catch (\Exception $e) {
+			error_log('Webhook trigger failed: ' . $e->getMessage());
+		}
+
 		$eventLine = json_encode($event) . "\n";
 		$eventFile = self::getEventFile();
 
