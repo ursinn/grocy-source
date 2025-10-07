@@ -24,14 +24,80 @@
 </div>
 
 <style>
+/* =================================
+   LAYOUT & GRID
+   ================================= */
+.container-fluid {
+	min-height: 100vh;
+	margin: 0;
+	padding: 0.5rem !important;
+}
+
 .activity-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(25em, 1fr));
 	gap: 1.5em;
 	padding: 1em;
 	max-width: none;
 }
 
+.activity-placeholder {
+	grid-column: 1 / -1;
+	background: #f8f9fa;
+	border-radius: 0.625em;
+	border: 0.125em dashed #dee2e6;
+}
+
+/* =================================
+   ACTIVITY ITEMS - BASE STYLES
+   ================================= */
+.activity-item {
+	background: white;
+	border-radius: 0.625em;
+	border-left: 0.125em solid #ddd;
+	box-shadow: 0 0.125em 0.5em rgba(0,0,0,0.1);
+	padding: 1.5em;
+	animation: slideIn 0.6s ease-out;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.activity-item:hover {
+	transform: translateY(-0.125em);
+	box-shadow: 0 0.25em 0.9375em rgba(0,0,0,0.15);
+	transition: all 0.2s ease;
+}
+
+/* Activity type colors */
+.activity-item.consume { border-left-color: #dc3545; }
+.activity-item.purchase { border-left-color: #28a745; }
+.activity-item.transfer { border-left-color: #ffc107; }
+.activity-item.product-opened { border-left-color: #007bff; }
+.activity-item.stock-edit { border-left-color: #6f42c1; }
+
+/* =================================
+   RECENT ACTIVITY HIGHLIGHTING
+   ================================= */
+.activity-item.recent {
+	position: relative;
+}
+
+.activity-item.recent:not(.undone)::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 0;
+	height: 0;
+	border-left: 1.5em solid transparent;
+	border-top: 1.5em solid #17a2b8;
+	border-top-right-radius: 0.625em;
+}
+
+/* =================================
+   ACTIVITY ITEMS - UNDONE STATE
+   ================================= */
 .activity-item.undone {
 	background: #f8f9fa;
 	border-left-color: #6c757d !important;
@@ -61,77 +127,9 @@
 	color: #6c757d !important;
 }
 
-.activity-item {
-	background: white;
-	border-radius: 10px;
-	border-left: 6px solid #ddd;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-	padding: 1.5em;
-	animation: slideIn 0.6s ease-out;
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-}
-
-.activity-item:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-	transition: all 0.2s ease;
-}
-
-.activity-item.consume {
-	border-left-color: #dc3545;
-}
-
-.activity-item.purchase {
-	border-left-color: #28a745;
-}
-
-.activity-item.transfer {
-	border-left-color: #ffc107;
-}
-
-.activity-item.product-opened {
-	border-left-color: #007bff;
-}
-
-.activity-item.stock-edit {
-	border-left-color: #6f42c1;
-}
-
-.text-purple {
-	color: #6f42c1 !important;
-}
-
-.activity-amount .fas {
-	font-size: 1.2em !important;
-	vertical-align: middle;
-}
-
-@keyframes slideIn {
-	from {
-		opacity: 0;
-		transform: translateY(-20px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-.activity-time {
-	font-size: 1.1em;
-	color: #6c757d;
-	font-weight: 500;
-}
-
-.activity-amount {
-	font-weight: bold;
-	font-size: 1.4em;
-	margin: 0.5em 0;
-}
-
-
+/* =================================
+   ACTIVITY ITEM CONTENT
+   ================================= */
 .activity-item strong {
 	font-size: 2em;
 	color: #333;
@@ -144,8 +142,22 @@
 	color: #666;
 }
 
-.activity-item .activity-amount {
+.activity-amount {
+	font-weight: bold;
+	font-size: 1.4em;
+	margin: 0.5em 0;
 	flex-grow: 1;
+}
+
+.activity-amount .fas {
+	font-size: 1.2em !important;
+	vertical-align: middle;
+}
+
+.activity-time {
+	font-size: 1.1em;
+	color: #6c757d;
+	font-weight: 500;
 }
 
 .stock-info {
@@ -162,25 +174,75 @@
 	color: #495057;
 }
 
+/* =================================
+   UI COMPONENTS
+   ================================= */
 .undo-btn {
 	font-size: 0.8em;
 	padding: 0.2rem 0.4rem;
 }
-
 
 .badge {
 	font-size: 0.8rem;
 	padding: 0.3rem 0.6rem;
 }
 
+.text-purple {
+	color: #6f42c1 !important;
+}
+
+/* =================================
+   NIGHT MODE OVERRIDES
+   ================================= */
+.night-mode .activity-item {
+	background: #3a3c3b;
+	color: #c1c1c1;
+}
+
+.night-mode .activity-item.undone {
+	background: #292b2a;
+}
+
+.night-mode .activity-item strong {
+	color: #c1c1c1;
+}
+
+.night-mode .activity-item small {
+	color: #8f9ba5;
+}
+
+.night-mode .activity-time {
+	color: #8f9ba5;
+}
+
+.night-mode .stock-info strong {
+	color: #c1c1c1;
+}
+
+.night-mode .activity-placeholder {
+	background: #333131;
+	border-color: #383838;
+	color: #8f9ba5;
+}
+
+/* =================================
+   IFRAME MODE
+   ================================= */
+.in-iframe .container-fluid {
+	background: transparent !important;
+}
+
+/* =================================
+   FULLSCREEN MODE
+   ================================= */
 /* Hide title row when connected */
 .row.mb-2:has(#connection-status.badge-success) {
 	display: none;
 }
 
-/* Fullscreen mode - hide navigation and use full viewport */
 body:not(:hover) {
 	overflow: hidden !important;
+	background: transparent !important;
 }
 
 body:not(:hover) #mainNav,
@@ -201,24 +263,29 @@ body:not(:hover) .content-wrapper {
 	height: 100vh !important;
 	margin: 0 !important;
 	padding: 0 !important;
-	background: #f8f9fa !important;
-}
-/* end fullscreen mode */
-
-.container-fluid {
-	min-height: 100vh;
-	margin: 0;
-	padding: 0.5rem !important;
-	background: #f8f9fa;
 }
 
-.activity-placeholder {
-	grid-column: 1 / -1;
-	background: #f8f9fa;
-	border-radius: 10px;
-	border: 2px dashed #dee2e6;
+body.in-iframe:not(:hover) .content-wrapper {
+	background: transparent !important;
 }
 
+/* =================================
+   ANIMATIONS
+   ================================= */
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(-20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* =================================
+   RESPONSIVE DESIGN
+   ================================= */
 @media (min-width: 1200px) {
 	.activity-grid {
 		grid-template-columns: repeat(3, 1fr);

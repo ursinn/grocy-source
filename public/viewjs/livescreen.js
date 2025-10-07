@@ -1,4 +1,9 @@
 $(document).ready(function() {
+	// Detect if running in iframe and add class to body
+	if (window !== window.top) {
+		document.body.classList.add('in-iframe');
+	}
+
 	let eventSource;
 
 	function connectSSE() {
@@ -70,12 +75,17 @@ $(document).ready(function() {
 		// Check if item is already undone
 		const isUndone = activity.undone === 1;
 		const undoneClass = isUndone ? ' undone' : '';
+
+		// Check if item is recent (within last minute)
+		const isRecent = isWithinLastMinute(activity.row_created_timestamp);
+		const recentClass = isRecent && !isUndone ? ' recent' : '';
+
 		const undoElement = isUndone ? '' : `<button class="btn btn-sm btn-outline-secondary undo-btn" data-booking-id="${activity.id}" title="Undo transaction">
 			<i class="fas fa-undo"></i>
 		</button>`;
 
 		const item = $(`
-			<div class="activity-item ${typeClass}${undoneClass}" data-id="${activity.id}" data-timestamp="${activity.row_created_timestamp}">
+			<div class="activity-item ${typeClass}${undoneClass}${recentClass}" data-id="${activity.id}" data-timestamp="${activity.row_created_timestamp}">
 				<div class="d-flex justify-content-between align-items-start mb-2">
 					<strong>${activity.product_name}</strong>
 					${undoElement}
@@ -183,6 +193,18 @@ $(document).ready(function() {
 		return activityDate.toLocaleDateString();
 	}
 
+	function isWithinLastMinute(dateString) {
+		if (!dateString) return false;
+
+		const now = new Date();
+		const utcString = dateString.replace(' ', 'T') + 'Z';
+		const activityDate = new Date(utcString);
+		const diffMs = now - activityDate;
+		const diffSecs = Math.floor(diffMs / 1000);
+
+		return diffSecs < 60;
+	}
+
 	function getDateInfo(dateString) {
 		if (!dateString) return { text: 'No expiry', cssClass: '' };
 
@@ -264,6 +286,15 @@ $(document).ready(function() {
 			if (timestamp) {
 				const timeAgo = getTimeAgo(timestamp);
 				item.find('.activity-time').text(timeAgo);
+
+				// Update recent highlighting
+				const isRecent = isWithinLastMinute(timestamp);
+				const isUndone = item.hasClass('undone');
+				if (isRecent && !isUndone) {
+					item.addClass('recent');
+				} else {
+					item.removeClass('recent');
+				}
 			}
 		});
 	}
