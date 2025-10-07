@@ -188,7 +188,7 @@
 }
 
 .text-purple {
-	color: #6f42c1 !important;
+	color: #8b5cf6 !important;
 }
 
 /* =================================
@@ -229,7 +229,7 @@
    IFRAME MODE
    ================================= */
 .in-iframe .container-fluid {
-	background: transparent !important;
+	background: none !important;
 }
 
 /* =================================
@@ -242,7 +242,7 @@
 
 body:not(:hover) {
 	overflow: hidden !important;
-	background: transparent !important;
+	background: none !important;
 }
 
 body:not(:hover) #mainNav,
@@ -266,7 +266,7 @@ body:not(:hover) .content-wrapper {
 }
 
 body.in-iframe:not(:hover) .content-wrapper {
-	background: transparent !important;
+	background: none !important;
 }
 
 /* =================================
