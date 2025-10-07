@@ -26,13 +26,39 @@
 <style>
 .activity-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-	gap: 1.5rem;
-	padding: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+	gap: 1.5em;
+	padding: 1em;
+	max-width: none;
 }
 
 .activity-item.undone {
-	opacity: 0.6;
+	background: #f8f9fa;
+	border-left-color: #6c757d !important;
+	position: relative;
+}
+
+.activity-item.undone::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: repeating-linear-gradient(
+		45deg,
+		transparent,
+		transparent 10px,
+		rgba(108, 117, 125, 0.1) 10px,
+		rgba(108, 117, 125, 0.1) 20px
+	);
+	border-radius: 10px;
+	pointer-events: none;
+}
+
+.activity-item.undone .activity-amount {
+	text-decoration: line-through;
+	color: #6c757d !important;
 }
 
 .activity-item {
@@ -40,7 +66,7 @@
 	border-radius: 10px;
 	border-left: 6px solid #ddd;
 	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-	padding: 1.5rem;
+	padding: 1.5em;
 	animation: slideIn 0.6s ease-out;
 	display: flex;
 	flex-direction: column;
@@ -65,6 +91,23 @@
 	border-left-color: #ffc107;
 }
 
+.activity-item.product-opened {
+	border-left-color: #007bff;
+}
+
+.activity-item.stock-edit {
+	border-left-color: #6f42c1;
+}
+
+.text-purple {
+	color: #6f42c1 !important;
+}
+
+.activity-amount .fas {
+	font-size: 1.2em !important;
+	vertical-align: middle;
+}
+
 @keyframes slideIn {
 	from {
 		opacity: 0;
@@ -85,12 +128,9 @@
 .activity-amount {
 	font-weight: bold;
 	font-size: 1.4em;
-	margin: 0.5rem 0;
+	margin: 0.5em 0;
 }
 
-.activity-item .fas {
-	font-size: 1.5em;
-}
 
 .activity-item strong {
 	font-size: 2em;
@@ -127,9 +167,6 @@
 	padding: 0.2rem 0.4rem;
 }
 
-.undo-btn:disabled {
-	cursor: not-allowed;
-}
 
 .badge {
 	font-size: 0.8rem;
@@ -143,7 +180,7 @@
 
 /* Fullscreen mode - hide navigation and use full viewport */
 body:not(:hover) {
-	overflow: hidden;
+	overflow: hidden !important;
 }
 
 body:not(:hover) #mainNav,
@@ -154,6 +191,7 @@ body:not(:hover) #sidebarResponsive {
 }
 
 body:not(:hover) .content-wrapper {
+	overflow: hidden !important;
 	position: fixed !important;
 	top: 0 !important;
 	left: 0 !important;
@@ -184,18 +222,21 @@ body:not(:hover) .content-wrapper {
 @media (min-width: 1200px) {
 	.activity-grid {
 		grid-template-columns: repeat(3, 1fr);
+		font-size: 1.1rem;
 	}
 }
 
 @media (min-width: 1600px) {
 	.activity-grid {
-		grid-template-columns: repeat(5, 1fr);
+		grid-template-columns: repeat(4, 1fr);
+		font-size: 1.3rem;
 	}
 }
 
 @media (min-width: 2000px) {
 	.activity-grid {
-		grid-template-columns: repeat(6, 1fr);
+		grid-template-columns: repeat(4, 1fr);
+		font-size: 1.5rem;
 	}
 }
 </style>

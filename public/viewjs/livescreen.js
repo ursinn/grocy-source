@@ -57,29 +57,35 @@ $(document).ready(function() {
 		const amountText = getAmountText(activity);
 
 		const currentAmountText = activity.current_amount ? `${activity.current_amount} ${getUnitName(activity, activity.current_amount)}` : 'N/A';
-		const dueDateText = activity.next_due_date ? getDateText(activity.next_due_date) : 'No expiry';
+		// Format due date with amount and get urgency info
+		let dueDateText = 'No expiry';
+		let dueDateClass = '';
+		if (activity.next_due_date && activity.next_due_date_amount) {
+			const dateInfo = getDateInfo(activity.next_due_date);
+			const dueAmountText = `${activity.next_due_date_amount} ${getUnitName(activity, activity.next_due_date_amount)}`;
+			dueDateText = `${dueAmountText} due ${dateInfo.text}`;
+			dueDateClass = dateInfo.cssClass;
+		}
 
 		// Check if item is already undone
 		const isUndone = activity.undone === 1;
 		const undoneClass = isUndone ? ' undone' : '';
-		const undoBtnClass = isUndone ? 'btn-success' : 'btn-outline-secondary';
-		const undoBtnIcon = isUndone ? 'fas fa-check' : 'fas fa-undo';
-		const undoBtnDisabled = isUndone ? 'disabled' : '';
+		const undoElement = isUndone ? '' : `<button class="btn btn-sm btn-outline-secondary undo-btn" data-booking-id="${activity.id}" title="Undo transaction">
+			<i class="fas fa-undo"></i>
+		</button>`;
 
 		const item = $(`
 			<div class="activity-item ${typeClass}${undoneClass}" data-id="${activity.id}" data-timestamp="${activity.row_created_timestamp}">
 				<div class="d-flex justify-content-between align-items-start mb-2">
 					<strong>${activity.product_name}</strong>
-					<button class="btn btn-sm ${undoBtnClass} undo-btn" data-booking-id="${activity.id}" title="Undo transaction" ${undoBtnDisabled}>
-						<i class="${undoBtnIcon}"></i>
-					</button>
+					${undoElement}
 				</div>
-				<div class="activity-amount ${typeClass === 'consume' ? 'text-danger' : typeClass === 'purchase' ? 'text-success' : typeClass === 'transfer' ? 'text-warning' : ''}">
+				<div class="activity-amount ${getAmountColorClass(typeClass)}">
 					${amountText}
 				</div>
 				<div class="stock-info mt-2">
 					<div class="current-stock"><small class="text-muted">Stock: <strong>${currentAmountText}</strong></small></div>
-					<div class="due-date"><small class="text-muted">Due: <strong>${dueDateText}</strong></small></div>
+					<div class="due-date"><small class="text-muted"><strong class="${dueDateClass}">${dueDateText}</strong></small></div>
 				</div>
 				<div class="d-flex justify-content-between align-items-center mt-1">
 					${activity.location_name ? `<small class="text-muted"><i class="fas fa-map-marker-alt mr-1"></i>${activity.location_name}</small>` : '<span></span>'}
@@ -110,8 +116,19 @@ $(document).ready(function() {
 
 	function getActivityTypeClass(transactionType) {
 		if (transactionType === 'consume') return 'consume';
-		if (transactionType === 'purchase' || transactionType === 'inventory-correction') return 'purchase';
+		if (transactionType === 'purchase' || transactionType === 'inventory-correction' || transactionType === 'self-production') return 'purchase';
 		if (transactionType === 'transfer_from' || transactionType === 'transfer_to') return 'transfer';
+		if (transactionType === 'product-opened') return 'product-opened';
+		if (transactionType === 'stock-edit-old' || transactionType === 'stock-edit-new') return 'stock-edit';
+		return '';
+	}
+
+	function getAmountColorClass(typeClass) {
+		if (typeClass === 'consume') return 'text-danger';
+		if (typeClass === 'purchase') return 'text-success';
+		if (typeClass === 'transfer') return 'text-warning';
+		if (typeClass === 'product-opened') return 'text-primary';
+		if (typeClass === 'stock-edit') return 'text-purple';
 		return '';
 	}
 
@@ -121,12 +138,18 @@ $(document).ready(function() {
 
 		if (activity.transaction_type === 'consume') {
 			return `−${amount} ${unit}`;
-		} else if (activity.transaction_type === 'purchase' || activity.transaction_type === 'inventory-correction') {
+		} else if (activity.transaction_type === 'purchase' || activity.transaction_type === 'inventory-correction' || activity.transaction_type === 'self-production') {
 			return `+${amount} ${unit}`;
 		} else if (activity.transaction_type === 'transfer_from') {
 			return `← ${amount} ${unit}`;
 		} else if (activity.transaction_type === 'transfer_to') {
 			return `→ ${amount} ${unit}`;
+		} else if (activity.transaction_type === 'product-opened') {
+			return `<i class="fas fa-box-open"></i> ${amount} ${unit}`;
+		} else if (activity.transaction_type === 'stock-edit-old') {
+			return `<i class="fas fa-edit"></i> −${amount} ${unit}`;
+		} else if (activity.transaction_type === 'stock-edit-new') {
+			return `<i class="fas fa-edit"></i> +${amount} ${unit}`;
 		}
 		return `${amount} ${unit}`;
 	}
@@ -160,9 +183,36 @@ $(document).ready(function() {
 		return activityDate.toLocaleDateString();
 	}
 
-	function getDateText(dateString) {
-		if (!dateString) return 'No expiry';
-		return dateString; // Return YYYY-MM-DD format as stored in database
+	function getDateInfo(dateString) {
+		if (!dateString) return { text: 'No expiry', cssClass: '' };
+
+		// Calculate days from now
+		const now = new Date();
+		const dueDate = new Date(dateString);
+		const diffTime = dueDate - now;
+		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+		if (diffDays < 0) {
+			return {
+				text: `${Math.abs(diffDays)} days ago`,
+				cssClass: 'text-danger font-weight-bold'
+			};
+		} else if (diffDays === 0) {
+			return {
+				text: 'today',
+				cssClass: 'text-danger font-weight-bold'
+			};
+		} else if (diffDays === 1) {
+			return {
+				text: 'tomorrow',
+				cssClass: 'text-warning font-weight-bold'
+			};
+		} else {
+			return {
+				text: `in ${diffDays} days`,
+				cssClass: ''
+			};
+		}
 	}
 
 	function undoBooking(bookingId, itemElement) {
@@ -177,7 +227,7 @@ $(document).ready(function() {
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			success: function(response) {
+			success: function() {
 				// Mark item as undone
 				markItemAsUndone(itemElement);
 			},
@@ -193,8 +243,8 @@ $(document).ready(function() {
 	function markItemAsUndone(itemElement) {
 		// Add undone styling
 		itemElement.addClass('undone');
-		// Change button to green checkmark and disable
-		itemElement.find('.undo-btn').prop('disabled', true).html('<i class="fas fa-check"></i>').removeClass('btn-outline-secondary').addClass('btn-success');
+		// Remove undo button entirely
+		itemElement.find('.undo-btn').remove();
 	}
 
 	function handleUndoEvent(undoData) {
@@ -208,7 +258,6 @@ $(document).ready(function() {
 	function updateTimestamps() {
 		$('.activity-item').each(function() {
 			const item = $(this);
-			const activityId = item.data('id');
 
 			// Get original timestamp from the activity data stored in a data attribute
 			const timestamp = item.data('timestamp');

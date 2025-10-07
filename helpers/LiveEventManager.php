@@ -203,7 +203,7 @@ class LiveEventManager
 		return $lines;
 	}
 
-	public static function publishStockActivity($stockLogEntry, $productName, $locationName = null, $quantityUnitName = null, $quantityUnitNamePlural = null, $currentAmount = null, $nextDueDate = null)
+	public static function publishStockActivity($stockLogEntry, $productName, $locationName = null, $quantityUnitName = null, $quantityUnitNamePlural = null, $currentAmount = null, $nextDueDate = null, $nextDueDateAmount = null)
 	{
 		$data = [
 			'id' => $stockLogEntry->id,
@@ -213,6 +213,7 @@ class LiveEventManager
 			'amount' => $stockLogEntry->amount,
 			'current_amount' => $currentAmount,
 			'next_due_date' => $nextDueDate,
+			'next_due_date_amount' => $nextDueDateAmount,
 			'location_id' => $stockLogEntry->location_id,
 			'location_name' => $locationName,
 			'qu_name' => $quantityUnitName,
