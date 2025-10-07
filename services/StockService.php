@@ -2021,7 +2021,7 @@ class StockService extends BaseService
 			$currentAmount = 0;
 			$nextDueDate = null;
 			$nextDueDateAmount = null;
-			$currentStock = $this->GetCurrentStock("WHERE product_id = " . $stockLogEntry->product_id);
+			$currentStock = $this->GetCurrentStock("WHERE product_id = " . $stockLogEntry->product_id . " AND amount > 0");
 			if (!empty($currentStock)) {
 				$currentAmount = $currentStock[0]->amount ?? 0;
 				$nextDueDate = $currentStock[0]->best_before_date ?? null;
