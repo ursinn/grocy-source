@@ -434,6 +434,12 @@ class StockService extends BaseService
 					break;
 				}
 
+				// Skip stock entries with zero amount to prevent consuming them
+				if ($stockEntry->amount <= 0)
+				{
+					continue;
+				}
+
 				if ($allowSubproductSubstitution && $stockEntry->product_id != $productId)
 				{
 					// A sub product will be used -> use QU conversions
@@ -1133,6 +1139,12 @@ class StockService extends BaseService
 				break;
 			}
 
+			// Skip stock entries with zero amount to prevent consuming them
+			if ($stockEntry->amount <= 0)
+			{
+				continue;
+			}
+
 			$newBestBeforeDate = $stockEntry->best_before_date;
 			if ($product->default_best_before_days_after_open > 0)
 			{
@@ -1429,6 +1441,12 @@ class StockService extends BaseService
 			if ($amount == 0)
 			{
 				break;
+			}
+
+			// Skip stock entries with zero amount to prevent transferring them
+			if ($stockEntry->amount <= 0)
+			{
+				continue;
 			}
 
 			$newBestBeforeDate = $stockEntry->best_before_date;
