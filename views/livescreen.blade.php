@@ -235,24 +235,20 @@
 /* =================================
    FULLSCREEN MODE
    ================================= */
-/* Hide title row when connected */
-.row.mb-2:has(#connection-status.badge-success) {
-	display: none;
-}
 
-body:not(:hover) {
+body.controls-hidden {
 	overflow: hidden !important;
 	background: none !important;
 }
 
-body:not(:hover) #mainNav,
-body:not(:hover) .navbar,
-body:not(:hover) .navbar-sidenav,
-body:not(:hover) #sidebarResponsive {
+body.controls-hidden #mainNav,
+body.controls-hidden .navbar,
+body.controls-hidden .navbar-sidenav,
+body.controls-hidden #sidebarResponsive {
 	display: none !important;
 }
 
-body:not(:hover) .content-wrapper {
+body.controls-hidden .content-wrapper {
 	overflow: hidden !important;
 	position: fixed !important;
 	top: 0 !important;
@@ -265,8 +261,13 @@ body:not(:hover) .content-wrapper {
 	padding: 0 !important;
 }
 
-body.in-iframe:not(:hover) .content-wrapper {
+body.in-iframe.controls-hidden .content-wrapper {
 	background: none !important;
+}
+
+/* Hide title row when connected */
+.row.mb-2:has(#connection-status.badge-success) {
+	display: none;
 }
 
 /* =================================

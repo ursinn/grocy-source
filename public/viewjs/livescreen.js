@@ -4,6 +4,47 @@ $(document).ready(function() {
 		document.body.classList.add('in-iframe');
 	}
 
+	// Efficient activity-based control hiding
+	const HIDE_DELAY = 3000; // ms
+	let hideTimer = null;
+	let lastMove = 0;
+	let visible = true;
+	let ticking = false;
+
+	function setControlsVisible(state) {
+		if (visible === state) return; // avoid unnecessary DOM changes
+		visible = state;
+		document.body.classList.toggle('controls-hidden', !state);
+	}
+
+	function scheduleHide() {
+		clearTimeout(hideTimer);
+		hideTimer = setTimeout(() => setControlsVisible(false), HIDE_DELAY);
+	}
+
+	function handleActivity() {
+		const now = performance.now();
+		if (now - lastMove < 100) return; // throttle to every 100ms
+		lastMove = now;
+
+		if (!ticking) {
+			requestAnimationFrame(() => {
+				setControlsVisible(true);
+				scheduleHide();
+				ticking = false;
+			});
+			ticking = true;
+		}
+	}
+
+	// pointermove covers mouse + touch + pen
+	document.addEventListener('pointermove', handleActivity);
+	document.addEventListener('keydown', handleActivity);
+	document.addEventListener('pointerdown', handleActivity);
+
+	// start with controls hidden
+	setControlsVisible(false);
+
 	let eventSource;
 
 	function connectSSE() {
