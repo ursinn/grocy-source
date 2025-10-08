@@ -2039,16 +2039,16 @@ class StockService extends BaseService
 			$currentAmount = 0;
 			$nextDueDate = null;
 			$nextDueDateAmount = null;
-			$currentStock = $this->GetCurrentStock("WHERE product_id = " . $stockLogEntry->product_id . " AND amount > 0");
+			$currentStock = $this->GetCurrentStock("WHERE product_id = " . $stockLogEntry->product_id);
 			if (!empty($currentStock)) {
 				$currentAmount = $currentStock[0]->amount ?? 0;
-				$nextDueDate = $currentStock[0]->best_before_date ?? null;
 
-				// Get the amount that expires on the next due date
-				if ($nextDueDate) {
-					$dueDateStockSql = 'SELECT SUM(amount) as due_amount FROM stock WHERE product_id = ' . $stockLogEntry->product_id . ' AND best_before_date = \'' . $nextDueDate . '\'';
-					$dueDateStockResult = $this->getDatabaseService()->ExecuteDbQuery($dueDateStockSql)->fetch(\PDO::FETCH_OBJ);
-					$nextDueDateAmount = $dueDateStockResult->due_amount ?? 0;
+				// Get the next due date and amount directly from raw stock table for consistency
+				$nextDueDateSql = 'SELECT best_before_date, SUM(amount) as due_amount FROM stock WHERE product_id = ' . $stockLogEntry->product_id . ' AND amount > 0 GROUP BY best_before_date ORDER BY best_before_date ASC LIMIT 1';
+				$nextDueDateResult = $this->getDatabaseService()->ExecuteDbQuery($nextDueDateSql)->fetch(\PDO::FETCH_OBJ);
+				if ($nextDueDateResult) {
+					$nextDueDate = $nextDueDateResult->best_before_date;
+					$nextDueDateAmount = $nextDueDateResult->due_amount ?? 0;
 				}
 			}
 
