@@ -1877,11 +1877,11 @@ class StockService extends BaseService
 
 	public function CompactStockEntries($productId = null)
 	{
-		// DISABLED: Stock compaction logic doesn't make sense - if entries were split due to 
+		// DISABLED: Stock compaction logic doesn't make sense - if entries were split due to
 		// legitimate operations (opening, consuming, transferring), they should remain separate
 		// to maintain accurate tracking of different states/locations
 		return;
-		
+
 		/*
 		if ($productId == null)
 		{
@@ -2067,9 +2067,9 @@ class StockService extends BaseService
 				'location_name' => $locationName,
 				'qu_name' => $quantityUnitName,
 				'qu_name_plural' => $quantityUnitNamePlural,
-				'row_created_timestamp' => $stockLogEntry->row_created_timestamp ? (new \DateTime($stockLogEntry->row_created_timestamp, new \DateTimeZone(date_default_timezone_get())))->setTimezone(new \DateTimeZone('UTC'))->format('c') : null,
+				'row_created_timestamp' => $stockLogEntry->row_created_timestamp ? (new \DateTime($stockLogEntry->row_created_timestamp, new \DateTimeZone(getenv('TZ') ?: 'UTC')))->setTimezone(new \DateTimeZone('UTC'))->format('c') : null,
 				'undone' => $stockLogEntry->undone,
-				'undone_timestamp' => $stockLogEntry->undone_timestamp ? (new \DateTime($stockLogEntry->undone_timestamp, new \DateTimeZone(date_default_timezone_get())))->setTimezone(new \DateTimeZone('UTC'))->format('c') : null
+				'undone_timestamp' => $stockLogEntry->undone_timestamp ? (new \DateTime($stockLogEntry->undone_timestamp, new \DateTimeZone(getenv('TZ') ?: 'UTC')))->setTimezone(new \DateTimeZone('UTC'))->format('c') : null
 			];
 
 			\Grocy\Helpers\LiveEventManager::publishEvent('stock_activity', $data);
