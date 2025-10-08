@@ -48,6 +48,9 @@ class LiveEventManager
 			throw new \Exception('inotify extension is required for live events');
 		}
 
+		// Set execution time limit for SSE connections (10 minutes max)
+		set_time_limit(600);
+
 		// Disable output buffering and set headers
 		if (ob_get_level()) {
 			ob_end_clean();
@@ -96,7 +99,15 @@ class LiveEventManager
 
 		// Initialize inotify
 		$inotify = inotify_init();
+		if ($inotify === false) {
+			throw new \Exception('Failed to initialize inotify');
+		}
+
 		$watch = inotify_add_watch($inotify, $eventFile, IN_MODIFY);
+		if ($watch === false) {
+			fclose($inotify);
+			throw new \Exception('Failed to add inotify watch');
+		}
 
 		// Keep connection alive and respond to file changes
 		while (true) {
