@@ -847,14 +847,36 @@ class StockService extends BaseService
 			return floatval($product->quick_consume_amount);
 		}
 
-		$potentialProduct = $this->getDatabase()->product_barcodes()->where('barcode = :1 COLLATE NOCASE', $barcode)->fetch();
-		if ($potentialProduct === null)
+		$barcodeEntry = $this->getDatabase()->product_barcodes()->where('barcode = :1 COLLATE NOCASE', $barcode)->fetch();
+		if ($barcodeEntry === null)
 		{
 			throw new \Exception("No product with barcode $barcode found");
 		}
 
-		// Return the configured amount or default to 1 if not set
-		return $potentialProduct->amount ? floatval($potentialProduct->amount) : 1;
+		// Get the configured amount or default to 1 if not set
+		$amount = $barcodeEntry->amount ? floatval($barcodeEntry->amount) : 1;
+
+		// If the barcode has a quantity unit configured, convert to the product's stock unit
+		if ($barcodeEntry->qu_id !== null)
+		{
+			$product = $this->getDatabase()->products($barcodeEntry->product_id);
+			if ($product === null)
+			{
+				throw new \Exception('Product not found');
+			}
+
+			// Only convert if the barcode unit differs from the product's stock unit
+			if ($barcodeEntry->qu_id != $product->qu_id_stock)
+			{
+				$conversion = $this->getDatabase()->cache__quantity_unit_conversions_resolved()->where('product_id = :1 AND from_qu_id = :2 AND to_qu_id = :3', $product->id, $barcodeEntry->qu_id, $product->qu_id_stock)->fetch();
+				if ($conversion !== null)
+				{
+					$amount = $amount * $conversion->factor;
+				}
+			}
+		}
+
+		return $amount;
 	}
 
 	public function GetProductPriceHistory(int $productId)
