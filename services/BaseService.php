@@ -81,4 +81,9 @@ class BaseService
 	{
 		return WebhookService::getInstance();
 	}
+
+	protected function getPendingScansService()
+	{
+		return PendingScansService::getInstance();
+	}
 }

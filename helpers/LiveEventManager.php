@@ -79,16 +79,16 @@ class LiveEventManager
 
 		foreach ($lastEvents as $eventLine) {
 			$event = json_decode(trim($eventLine), true);
-			if ($event && isset($event['type']) && ($event['type'] === 'stock_activity' || $event['type'] === 'stock_undo')) {
+			if ($event && isset($event['type']) && ($event['type'] === 'stock_activity' || $event['type'] === 'stock_undo' || $event['type'] === 'pending_scan')) {
 				$validEvents[] = $event;
 			}
 		}
 
-		// Sort by event ID to ensure proper order (stock_activity first, then stock_undo)
+		// Sort by timestamp to ensure chronological order
 		usort($validEvents, function($a, $b) {
-			$aId = isset($a['data']['id']) ? $a['data']['id'] : (isset($a['data']['booking_id']) ? $a['data']['booking_id'] : 0);
-			$bId = isset($b['data']['id']) ? $b['data']['id'] : (isset($b['data']['booking_id']) ? $b['data']['booking_id'] : 0);
-			return $aId <=> $bId;
+			$aTimestamp = $a['timestamp'] ?? 0;
+			$bTimestamp = $b['timestamp'] ?? 0;
+			return $aTimestamp <=> $bTimestamp;
 		});
 
 		$eventsToSend = array_slice($validEvents, -40);

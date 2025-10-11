@@ -182,6 +182,7 @@ class StockApiController extends BaseApiController
 		}
 		catch (\Exception $ex)
 		{
+			$this->logFailedBarcodeScan($request, $args['barcode'], 'add', $ex->getMessage());
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
 	}
@@ -372,6 +373,7 @@ class StockApiController extends BaseApiController
 		}
 		catch (\Exception $ex)
 		{
+			$this->logFailedBarcodeScan($request, $args['barcode'], 'consume', $ex->getMessage());
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
 	}
@@ -820,6 +822,7 @@ class StockApiController extends BaseApiController
 		}
 		catch (\Exception $ex)
 		{
+			$this->logFailedBarcodeScan($request, $args['barcode'], 'inventory', $ex->getMessage());
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
 	}
@@ -898,6 +901,7 @@ class StockApiController extends BaseApiController
 		}
 		catch (\Exception $ex)
 		{
+			$this->logFailedBarcodeScan($request, $args['barcode'], 'open', $ex->getMessage());
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
 	}
@@ -923,6 +927,7 @@ class StockApiController extends BaseApiController
 		}
 		catch (\Exception $ex)
 		{
+			$this->logFailedBarcodeScan($request, $args['barcode'], 'details', $ex->getMessage());
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
 	}
@@ -1186,6 +1191,7 @@ class StockApiController extends BaseApiController
 		}
 		catch (\Exception $ex)
 		{
+			$this->logFailedBarcodeScan($request, $args['barcode'], 'transfer', $ex->getMessage());
 			return $this->GenericErrorResponse($response, $ex->getMessage());
 		}
 	}

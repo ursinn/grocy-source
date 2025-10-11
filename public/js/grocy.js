@@ -890,6 +890,28 @@ $(document).on("click", "a.btn.link-return", function(e)
 	}
 });
 
+// Helper function to programmatically handle returnto parameter
+Grocy.HandleReturnTo = function(delay = 0)
+{
+	var link = GetUriParam("returnto");
+	if (link && link.length > 0)
+	{
+		if (delay > 0)
+		{
+			toastr.info(__t("Redirecting back in %s seconds...", Math.ceil(delay / 1000)));
+			setTimeout(function() {
+				location.href = U(link);
+			}, delay);
+		}
+		else
+		{
+			location.href = U(link);
+		}
+		return true; // Indicates that a redirect will happen
+	}
+	return false; // No redirect
+};
+
 $('.dropdown-item').has('.form-check input[type=checkbox]').on('click', function(e)
 {
 	if ($(e.target).is('div.form-check') || $(e.target).is('div.dropdown-item'))

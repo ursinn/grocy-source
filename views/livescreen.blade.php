@@ -76,6 +76,44 @@
 .activity-item.product-opened { border-left-color: #007bff; }
 .activity-item.stock-edit { border-left-color: #6f42c1; }
 
+/* Pending scan specific styling */
+.activity-item.pending-scan {
+	border-left-width: 0.25em;
+	position: relative;
+	background: repeating-linear-gradient(
+		135deg,
+		rgba(220, 53, 69, 0.1) 0px,
+		rgba(220, 53, 69, 0.1) 10px,
+		transparent 10px,
+		transparent 20px
+	);
+}
+
+.activity-item.pending-scan::after {
+	content: '⚠ PENDING';
+	position: absolute;
+	top: 2.5em;
+	right: 2.5em;
+	background: #dc3545;
+	color: white;
+	padding: 0.2em 0.5em;
+	border-radius: 0.25em;
+	font-size: 0.7em;
+	font-weight: bold;
+	z-index: 1;
+}
+
+.activity-item.pending-scan .activity-amount .fas {
+	animation: pulse 2s infinite;
+	color: #dc3545 !important;
+}
+
+@keyframes pulse {
+	0% { opacity: 1; }
+	50% { opacity: 0.5; }
+	100% { opacity: 1; }
+}
+
 /* =================================
    RECENT ACTIVITY HIGHLIGHTING
    ================================= */

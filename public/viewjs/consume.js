@@ -785,3 +785,15 @@ function ScanModeSubmit(singleUnit = true)
 		}
 	}
 }
+
+// Handle barcode URL parameter (only if not in any flow)
+var barcodeParam = GetUriParam('barcode');
+var flowParam = GetUriParam('flow');
+if (typeof barcodeParam !== "undefined" && barcodeParam && Grocy.Components.ProductPicker && typeof flowParam === "undefined")
+{
+	setTimeout(function()
+	{
+		Grocy.Components.ProductPicker.GetInputElement().val(barcodeParam);
+		Grocy.Components.ProductPicker.GetInputElement().trigger('blur');
+	}, Grocy.FormFocusDelay);
+}

@@ -1,4 +1,4 @@
-﻿var CurrentProductDetails;
+var CurrentProductDetails;
 
 $('#save-purchase-button').on('click', function(e)
 {
@@ -110,6 +110,7 @@ $('#save-purchase-button').on('click', function(e)
 								$('#barcode-lookup-disabled-hint').addClass('d-none');
 								$('#barcode-lookup-hint').removeClass('d-none');
 								window.history.replaceState({}, document.title, U("/purchase"));
+
 							},
 							function(xhr)
 							{
@@ -193,12 +194,24 @@ $('#save-purchase-button').on('click', function(e)
 							toastr.success(successMessage);
 							Grocy.Components.ProductPicker.FinishFlow();
 
+							var waitForRedirect = false;
 							if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_BEST_BEFORE_DATE_TRACKING && BoolVal(Grocy.UserSettings.show_warning_on_purchase_when_due_date_is_earlier_than_next))
 							{
 								if (moment(jsonData.best_before_date).isBefore(CurrentProductDetails.next_due_date))
 								{
 									toastr.warning(__t("This is due earlier than already in stock items"));
+									waitForRedirect = true;
 								}
+							}
+
+							// Handle returnto parameter if present
+							if (waitForRedirect)
+							{
+								Grocy.HandleReturnTo(10000); // 10 second delay with toast
+							}
+							else
+							{
+								Grocy.HandleReturnTo(5000); // Immediate redirect, but small delay to allow product barcode add to product call to finish
 							}
 
 							Grocy.Components.ProductAmountPicker.Reset();
@@ -763,4 +776,16 @@ if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_LABEL_PRINTER)
 if (Grocy.Components.UserfieldsForm)
 {
 	Grocy.Components.UserfieldsForm.Load();
+}
+
+// Handle barcode URL parameter (only if not in any flow)
+var barcodeParam = GetUriParam('barcode');
+var flowParam = GetUriParam('flow');
+if (typeof barcodeParam !== "undefined" && barcodeParam && Grocy.Components.ProductPicker && typeof flowParam === "undefined")
+{
+	setTimeout(function()
+	{
+		Grocy.Components.ProductPicker.GetInputElement().val(barcodeParam);
+		Grocy.Components.ProductPicker.GetInputElement().trigger('blur');
+	}, Grocy.FormFocusDelay);
 }

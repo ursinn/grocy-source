@@ -75,6 +75,9 @@ $(document).ready(function() {
 				} else if (data.type === 'stock_undo') {
 					// Handle undo event - mark existing item as undone
 					handleUndoEvent(data.data);
+				} else if (data.type === 'pending_scan') {
+					// Handle pending scan event
+					addPendingScanItem(data.data);
 				}
 			} catch (err) {
 				console.error('Error parsing SSE data:', err);
@@ -311,6 +314,70 @@ $(document).ready(function() {
 		if (existingItem.length > 0) {
 			markItemAsUndone(existingItem);
 		}
+	}
+
+	function addPendingScanItem(pendingScan) {
+		console.log('Adding pending scan item:', pendingScan);
+		const feedEl = $('#activity-feed');
+
+		// Remove placeholder if exists
+		feedEl.find('.activity-placeholder').remove();
+
+		// Get operation color class
+		const operationClass = getPendingScanOperationClass(pendingScan.operation);
+		const amountColorClass = getPendingScanAmountColorClass(operationClass);
+
+		// Check if item is recent (within last minute)
+		const isRecent = isWithinLastMinute(pendingScan.timestamp);
+		const recentClass = isRecent ? ' recent' : '';
+
+		// Format the error message for display
+		const shortErrorMessage = pendingScan.error_message.length > 80
+			? pendingScan.error_message.substring(0, 80) + '...'
+			: pendingScan.error_message;
+
+		// Create the activity item HTML
+		const itemHtml = `
+			<div class="activity-item pending-scan ${operationClass}${recentClass}" data-id="pending-${pendingScan.id}" data-timestamp="${pendingScan.timestamp}">
+				<strong>${pendingScan.operation.charAt(0).toUpperCase() + pendingScan.operation.slice(1)}</strong>
+				<small class="text-muted">Pending Scan</small>
+				<div class="activity-amount ${amountColorClass}">
+					<i class="fas fa-exclamation-triangle"></i> ${pendingScan.barcode}
+				</div>
+				<div class="activity-time">${getTimeAgo(pendingScan.timestamp)}</div>
+				<div class="stock-info">
+					<small class="text-danger">${shortErrorMessage}</small>
+					<a href="${U('/pendingscan/')}${pendingScan.id}" class="btn btn-sm btn-info" title="View details">
+						<i class="fas fa-eye"></i>
+					</a>
+				</div>
+			</div>
+		`;
+
+		// Add to the beginning of the feed
+		feedEl.prepend(itemHtml);
+
+		// Limit the number of items (remove old ones)
+		const items = feedEl.find('.activity-item');
+		if (items.length > 50) {
+			items.slice(50).remove();
+		}
+	}
+
+	function getPendingScanOperationClass(operation) {
+		if (operation === 'consume') return 'consume';
+		if (operation === 'add' || operation === 'inventory') return 'purchase';
+		if (operation === 'transfer') return 'transfer';
+		if (operation === 'open') return 'product-opened';
+		return 'stock-edit'; // fallback
+	}
+
+	function getPendingScanAmountColorClass(operationClass) {
+		if (operationClass === 'consume') return 'text-danger';
+		if (operationClass === 'purchase') return 'text-success';
+		if (operationClass === 'transfer') return 'text-warning';
+		if (operationClass === 'product-opened') return 'text-primary';
+		return 'text-purple';
 	}
 
 	function updateTimestamps() {

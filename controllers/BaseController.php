@@ -116,6 +116,63 @@ class BaseController
 		return UsersService::getInstance();
 	}
 
+	protected function getPendingScansService()
+	{
+		return \Grocy\Services\PendingScansService::getInstance();
+	}
+
+	protected function logFailedBarcodeScan($request, string $barcode, string $operation, string $errorMessage)
+	{
+		try
+		{
+			$userAgent = $request->getHeaderLine('User-Agent');
+			$ipAddress = $this->getClientIpAddress($request);
+
+			// Capture complete request context
+			$requestContext = [
+				'method' => $request->getMethod(),
+				'path' => $request->getUri()->getPath(),
+				'query_params' => $request->getQueryParams(),
+				'body' => $request->getParsedBody()
+			];
+
+			$this->getPendingScansService()->LogFailedScan(
+				$barcode,
+				$operation,
+				$requestContext,
+				$errorMessage,
+				$userAgent,
+				$ipAddress
+			);
+		}
+		catch (\Exception $ex)
+		{
+			// Don't let logging failures break the main error response
+		}
+	}
+
+	private function getClientIpAddress($request)
+	{
+		$serverParams = $request->getServerParams();
+
+		// Check for various headers that might contain the real IP
+		$headers = [
+			'HTTP_X_FORWARDED_FOR',
+			'HTTP_X_REAL_IP',
+			'HTTP_CLIENT_IP',
+			'REMOTE_ADDR'
+		];
+
+		foreach ($headers as $header) {
+			if (!empty($serverParams[$header])) {
+				$ips = explode(',', $serverParams[$header]);
+				return trim($ips[0]);
+			}
+		}
+
+		return null;
+	}
+
 	protected function render($response, $viewName, $data = [])
 	{
 		$container = $this->AppContainer;

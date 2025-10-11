@@ -128,6 +128,10 @@ $app->group('', function (RouteCollectorProxy $group)
 	$group->get('/api', '\Grocy\Controllers\OpenApiController:DocumentationUi');
 	$group->get('/manageapikeys', '\Grocy\Controllers\OpenApiController:ApiKeysList');
 	$group->get('/manageapikeys/new', '\Grocy\Controllers\OpenApiController:CreateNewApiKey');
+
+	// Pending Scans routes
+	$group->get('/pendingscans', '\Grocy\Controllers\PendingScansController:PendingScansList');
+	$group->get('/pendingscan/{id}', '\Grocy\Controllers\PendingScansController:PendingScanView');
 });
 
 $app->group('/api', function (RouteCollectorProxy $group)
@@ -254,6 +258,14 @@ $app->group('/api', function (RouteCollectorProxy $group)
 
 	// Live Activity
 	$group->get('/live-activity', '\Grocy\Controllers\LiveActivityApiController:LiveActivityStream');
+
+	// Pending Scans
+	$group->get('/pending-scans', '\Grocy\Controllers\PendingScansApiController:GetPendingScans');
+	$group->get('/pending-scans/count', '\Grocy\Controllers\PendingScansApiController:GetPendingScansCount');
+	$group->get('/pending-scans/{id}', '\Grocy\Controllers\PendingScansApiController:GetPendingScan');
+	$group->post('/pending-scans/{id}/resolve', '\Grocy\Controllers\PendingScansApiController:ResolvePendingScan');
+	$group->delete('/pending-scans/{id}', '\Grocy\Controllers\PendingScansApiController:DeletePendingScan');
+	$group->get('/pending-scans/by-barcode/{barcode}', '\Grocy\Controllers\PendingScansApiController:GetPendingScansByBarcode');
 })->add(JsonMiddleware::class);
 
 // Handle CORS preflight OPTIONS requests
