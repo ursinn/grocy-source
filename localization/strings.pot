@@ -2470,3 +2470,225 @@ msgstr ""
 
 msgid "List actions"
 msgstr ""
+
+msgid "Pending Scans"
+msgstr ""
+
+msgid "You have %s pending scan(s) that need manual resolution."
+msgstr ""
+
+msgid "Operation"
+msgstr ""
+
+msgid "Error"
+msgstr ""
+
+msgid "View details"
+msgstr ""
+
+msgid "Mark as resolved"
+msgstr ""
+
+msgid "Pending"
+msgstr ""
+
+msgid "Are you sure you want to mark this scan as resolved?"
+msgstr ""
+
+msgid "An error occurred"
+msgstr ""
+
+msgid "Are you sure you want to delete this scan?"
+msgstr ""
+
+msgid "Inventory container"
+msgstr ""
+
+msgid "Container inventory"
+msgstr ""
+
+msgid "Pending scans"
+msgstr ""
+
+msgid "Live Screen"
+msgstr ""
+
+msgid "Pending Scan Details"
+msgstr ""
+
+msgid "Back to list"
+msgstr ""
+
+msgid "Scan Information"
+msgstr ""
+
+msgid "ID"
+msgstr ""
+
+msgid "User Agent"
+msgstr ""
+
+msgid "IP Address"
+msgstr ""
+
+msgid "Error Details"
+msgstr ""
+
+msgid "Error Message"
+msgstr ""
+
+msgid "Request Data"
+msgstr ""
+
+msgid "Actions"
+msgstr ""
+
+msgid "Mark as Resolved"
+msgstr ""
+
+msgid "You can manually resolve this issue by using the appropriate stock operation forms, then mark this scan as resolved."
+msgstr ""
+
+msgid "Quick Actions"
+msgstr ""
+
+msgid "Common Solutions"
+msgstr ""
+
+msgid "Create New Product"
+msgstr ""
+
+msgid "Add a new product with barcode"
+msgstr ""
+
+msgid "Search Products"
+msgstr ""
+
+msgid "Look for similar products or check stock levels"
+msgstr ""
+
+msgid "Scan Actions"
+msgstr ""
+
+msgid "Use the quick actions above to resolve the underlying issue, then mark this scan as resolved."
+msgstr ""
+
+msgid "Original Request"
+msgstr ""
+
+msgid "Kilo"
+msgstr ""
+
+msgid "Cabeza de ajo"
+msgstr ""
+
+msgid "Unidad"
+msgstr ""
+
+msgid "Litro"
+msgstr ""
+
+msgid "Gramo"
+msgstr ""
+
+msgid "Mililitro"
+msgstr ""
+
+msgid "Ración"
+msgstr ""
+
+msgid "Add Barcode to Existing Product"
+msgstr ""
+
+msgid "Find the product and add barcode"
+msgstr ""
+
+msgid "to it"
+msgstr ""
+
+msgid "If the product doesn't exist, create a new one with this barcode"
+msgstr ""
+
+msgid "StockEntryContainerWeight"
+msgstr ""
+
+msgid "Add Stock (Purchase)"
+msgstr ""
+
+msgid "Purchase/add stock for this barcode"
+msgstr ""
+
+msgid "Sobre"
+msgstr ""
+
+msgid "Consume Stock"
+msgstr ""
+
+msgid "Try the consume operation again"
+msgstr ""
+
+msgid "Transferred"
+msgstr ""
+
+msgid "opened"
+msgstr ""
+
+msgid "Resolved"
+msgstr ""
+
+msgid "stock"
+msgstr ""
+
+msgid "Marked"
+msgstr ""
+
+msgid "Scan Management"
+msgstr ""
+
+msgid "Permanently delete this scan record"
+msgstr ""
+
+msgid "Added"
+msgstr ""
+
+msgid "Request Body"
+msgstr ""
+
+msgid "Bolsa"
+msgstr ""
+
+msgid "Transfer Stock"
+msgstr ""
+
+msgid "Try the transfer operation again"
+msgstr ""
+
+msgid "Diente de ajo"
+msgstr ""
+
+msgid "Bote"
+msgstr ""
+
+msgid "Hoja"
+msgstr ""
+
+msgid "Rama"
+msgstr ""
+
+msgid "Botella 75cl"
+msgstr ""
+
+msgid "Removed"
+msgstr ""
+
+msgid "Inventory saved successfully"
+msgstr ""
+
+msgid "Redirecting back in %s seconds..."
+msgstr ""
+
+msgid "Oz peso"
+msgstr ""
+
+msgid "Waiting for activity..."
+msgstr ""

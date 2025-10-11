@@ -125,7 +125,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 	var table = $('#pending-scans-table').DataTable({
-		order: [[1, 'desc']],
+		order: [[5, 'asc'], [1, 'desc']], // Status first (pending before resolved), then Created (newest first)
 		columnDefs: [
 			{ orderable: false, targets: 0 }
 		]
