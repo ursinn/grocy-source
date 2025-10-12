@@ -35,7 +35,7 @@
 
 .activity-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(25em, 1fr));
+	grid-template-columns: repeat(3, 1fr);
 	gap: 1.5em;
 	padding: 1em;
 	max-width: none;
@@ -61,6 +61,8 @@
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	min-width: 0;
+	max-width: 100%;
 }
 
 .activity-item:hover {
@@ -78,7 +80,6 @@
 
 /* Pending scan specific styling */
 .activity-item.pending-scan {
-	border-left-width: 0.25em;
 	position: relative;
 	background: repeating-linear-gradient(
 		135deg,
@@ -87,6 +88,12 @@
 		transparent 10px,
 		transparent 20px
 	);
+}
+
+.activity-item.pending-scan .scan-error-text {
+	white-space: normal;
+	overflow: visible;
+	text-overflow: initial;
 }
 
 .activity-item.pending-scan::after {
@@ -101,17 +108,6 @@
 	font-size: 0.7em;
 	font-weight: bold;
 	z-index: 1;
-}
-
-.activity-item.pending-scan .activity-amount .fas {
-	animation: pulse 2s infinite;
-	color: #dc3545 !important;
-}
-
-@keyframes pulse {
-	0% { opacity: 1; }
-	50% { opacity: 0.5; }
-	100% { opacity: 1; }
 }
 
 /* =================================
@@ -166,6 +162,56 @@
 }
 
 /* =================================
+   ACTIVITY ITEMS - RESOLVED STATE
+   ================================= */
+.activity-item.resolved {
+	background: #f8f9fa;
+	border-left-color: #6c757d !important;
+	position: relative;
+}
+
+.activity-item.resolved::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: repeating-linear-gradient(
+		45deg,
+		transparent,
+		transparent 10px,
+		rgba(108, 117, 125, 0.1) 10px,
+		rgba(108, 117, 125, 0.1) 20px
+	);
+	border-radius: 10px;
+	pointer-events: none;
+}
+
+.activity-item.resolved .activity-amount {
+	text-decoration: line-through;
+	color: #6c757d !important;
+}
+
+.activity-item.resolved .scan-error-text {
+	color: #6c757d !important;
+}
+
+.activity-item.resolved::after {
+	content: '✓ RESOLVED';
+	position: absolute;
+	top: 2.5em;
+	right: 2.5em;
+	background: #6c757d;
+	color: white;
+	padding: 0.2em 0.5em;
+	border-radius: 0.25em;
+	font-size: 0.7em;
+	font-weight: bold;
+	z-index: 1;
+}
+
+/* =================================
    ACTIVITY ITEM CONTENT
    ================================= */
 .activity-item strong {
@@ -173,11 +219,17 @@
 	color: #333;
 	font-weight: 700;
 	line-height: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .activity-item small {
 	font-size: 1.1em;
 	color: #666;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .activity-amount {
@@ -185,6 +237,9 @@
 	font-size: 1.4em;
 	margin: 0.5em 0;
 	flex-grow: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .activity-amount .fas {
@@ -238,6 +293,10 @@
 }
 
 .night-mode .activity-item.undone {
+	background: #292b2a;
+}
+
+.night-mode .activity-item.resolved {
 	background: #292b2a;
 }
 

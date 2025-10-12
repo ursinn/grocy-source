@@ -78,6 +78,9 @@ $(document).ready(function() {
 				} else if (data.type === 'pending_scan') {
 					// Handle pending scan event
 					addPendingScanItem(data.data);
+				} else if (data.type === 'pending_scan_resolved') {
+					// Handle pending scan resolution
+					handlePendingScanResolved(data.data);
 				}
 			} catch (err) {
 				console.error('Error parsing SSE data:', err);
@@ -316,6 +319,21 @@ $(document).ready(function() {
 		}
 	}
 
+	function handlePendingScanResolved(resolvedData) {
+		// Find the corresponding pending scan item by ID
+		const existingItem = $(`.activity-item[data-id="pending-${resolvedData.id}"]`);
+		if (existingItem.length > 0) {
+			markPendingScanAsResolved(existingItem);
+		}
+	}
+
+	function markPendingScanAsResolved(itemElement) {
+		// Add resolved styling
+		itemElement.addClass('resolved');
+		// Remove recent class if present
+		itemElement.removeClass('recent');
+	}
+
 	function addPendingScanItem(pendingScan) {
 		console.log('Adding pending scan item:', pendingScan);
 		const feedEl = $('#activity-feed');
@@ -331,6 +349,10 @@ $(document).ready(function() {
 		const isRecent = isWithinLastMinute(pendingScan.timestamp);
 		const recentClass = isRecent ? ' recent' : '';
 
+		// Check if item is resolved
+		const isResolved = pendingScan.resolved === 1 || pendingScan.resolved === true;
+		const resolvedClass = isResolved ? ' resolved' : '';
+
 		// Format the error message for display
 		const shortErrorMessage = pendingScan.error_message.length > 80
 			? pendingScan.error_message.substring(0, 80) + '...'
@@ -338,15 +360,15 @@ $(document).ready(function() {
 
 		// Create the activity item HTML
 		const itemHtml = `
-			<div class="activity-item pending-scan ${operationClass}${recentClass}" data-id="pending-${pendingScan.id}" data-timestamp="${pendingScan.timestamp}">
+			<div class="activity-item pending-scan ${operationClass}${recentClass}${resolvedClass}" data-id="pending-${pendingScan.id}" data-timestamp="${pendingScan.timestamp}">
 				<strong>${pendingScan.operation.charAt(0).toUpperCase() + pendingScan.operation.slice(1)}</strong>
 				<small class="text-muted">Pending Scan</small>
 				<div class="activity-amount ${amountColorClass}">
-					<i class="fas fa-exclamation-triangle"></i> ${pendingScan.barcode}
+					${pendingScan.barcode}
 				</div>
 				<div class="activity-time">${getTimeAgo(pendingScan.timestamp)}</div>
 				<div class="stock-info">
-					<small class="text-danger">${shortErrorMessage}</small>
+					<small class="text-danger scan-error-text">${shortErrorMessage}</small>
 					<a href="${U('/pendingscan/')}${pendingScan.id}" class="btn btn-sm btn-info" title="View details">
 						<i class="fas fa-eye"></i>
 					</a>

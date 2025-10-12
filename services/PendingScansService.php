@@ -70,6 +70,20 @@ class PendingScansService extends BaseService
 			'resolved_by' => $userId
 		]);
 
+		// Publish live event for pending scan resolution
+		try {
+			\Grocy\Helpers\LiveEventManager::publishEvent('pending_scan_resolved', [
+				'id' => $id,
+				'barcode' => $row->barcode,
+				'operation' => $row->operation,
+				'resolved_by' => $userId,
+				'resolved_timestamp' => date('c')
+			]);
+		} catch (\Exception $ex) {
+			// Don't let live event publishing failure break the main functionality
+			error_log('Failed to publish pending scan resolved live event: ' . $ex->getMessage());
+		}
+
 		return true;
 	}
 

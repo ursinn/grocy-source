@@ -79,7 +79,7 @@ class LiveEventManager
 
 		foreach ($lastEvents as $eventLine) {
 			$event = json_decode(trim($eventLine), true);
-			if ($event && isset($event['type']) && ($event['type'] === 'stock_activity' || $event['type'] === 'stock_undo' || $event['type'] === 'pending_scan')) {
+			if ($event && isset($event['type']) && ($event['type'] === 'stock_activity' || $event['type'] === 'stock_undo' || $event['type'] === 'pending_scan' || $event['type'] === 'pending_scan_resolved')) {
 				$validEvents[] = $event;
 			}
 		}
