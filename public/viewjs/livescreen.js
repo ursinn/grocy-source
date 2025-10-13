@@ -114,7 +114,7 @@ $(document).ready(function() {
 		let dueDateClass = '';
 		if (activity.next_due_date && activity.next_due_date_amount) {
 			const dateInfo = getDateInfo(activity.next_due_date);
-			const dueAmountText = `${activity.next_due_date_amount} ${getUnitName(activity, activity.next_due_date_amount)}`;
+			const dueAmountText = `${activity.next_due_date_amount}`;
 			dueDateText = `${dueAmountText} due ${dateInfo.text}`;
 			dueDateClass = dateInfo.cssClass;
 		}
@@ -141,7 +141,7 @@ $(document).ready(function() {
 					${amountText}
 				</div>
 				<div class="stock-info mt-2">
-					<div class="current-stock"><small class="text-muted">Stock: <strong>${currentAmountText}</strong></small></div>
+					<div class="current-stock"><small class="text-muted"><i class="fas fa-box mr-1"></i><strong>${currentAmountText}</strong></small></div>
 					<div class="due-date"><small class="text-muted"><strong class="${dueDateClass}">${dueDateText}</strong></small></div>
 				</div>
 				<div class="d-flex justify-content-between align-items-center mt-1">
