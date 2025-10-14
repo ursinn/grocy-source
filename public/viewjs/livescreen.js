@@ -108,15 +108,29 @@ $(document).ready(function() {
 		const typeClass = getActivityTypeClass(activity.transaction_type);
 		const amountText = getAmountText(activity);
 
-		const currentAmountText = activity.current_amount ? `${activity.current_amount} ${getUnitName(activity, activity.current_amount)}` : 'N/A';
+		const currentAmountText = activity.current_amount ? `${activity.current_amount} ${getUnitName(activity, activity.current_amount)}` : 'Out of stock';
 		// Format due date with amount and get urgency info
-		let dueDateText = 'No expiry';
+		let dueDateText = '';
 		let dueDateClass = '';
 		if (activity.next_due_date && activity.next_due_date_amount) {
-			const dateInfo = getDateInfo(activity.next_due_date);
-			const dueAmountText = `${activity.next_due_date_amount}`;
-			dueDateText = `${dueAmountText} due ${dateInfo.text}`;
-			dueDateClass = dateInfo.cssClass;
+			// Check if expiry date is more than 5 years in the future
+			const now = new Date();
+			const fiveYearsFromNow = new Date(now.getFullYear() + 5, now.getMonth(), now.getDate());
+			const expiryDate = new Date(activity.next_due_date);
+
+			console.log('Debug dates:', {
+				next_due_date: activity.next_due_date,
+				expiryDate: expiryDate,
+				fiveYearsFromNow: fiveYearsFromNow,
+				isWithin5Years: expiryDate <= fiveYearsFromNow
+			});
+
+			if (expiryDate <= fiveYearsFromNow) {
+				const dateInfo = getDateInfo(activity.next_due_date);
+				const dueAmountText = `${activity.next_due_date_amount}`;
+				dueDateText = `${dueAmountText} due ${dateInfo.text}`;
+				dueDateClass = dateInfo.cssClass;
+			}
 		}
 
 		// Check if item is already undone
@@ -271,9 +285,27 @@ $(document).ready(function() {
 				text: 'tomorrow',
 				cssClass: 'text-warning font-weight-bold'
 			};
-		} else {
+		} else if (diffDays <= 14) {
 			return {
 				text: `in ${diffDays} days`,
+				cssClass: ''
+			};
+		} else if (diffDays <= 60) {
+			const weeks = Math.round(diffDays / 7);
+			return {
+				text: `in ${weeks} week${weeks === 1 ? '' : 's'}`,
+				cssClass: ''
+			};
+		} else if (diffDays <= 730) {
+			const months = Math.round(diffDays / 30.44); // Average days per month
+			return {
+				text: `in ${months} month${months === 1 ? '' : 's'}`,
+				cssClass: ''
+			};
+		} else {
+			const years = Math.round(diffDays / 365.25); // Average days per year
+			return {
+				text: `in ${years} year${years === 1 ? '' : 's'}`,
 				cssClass: ''
 			};
 		}

@@ -197,6 +197,12 @@
 	color: #6c757d !important;
 }
 
+.activity-item.resolved .btn {
+	color: #6c757d !important;
+	border-color: #6c757d !important;
+	background-color: transparent !important;
+}
+
 .activity-item.resolved::after {
 	content: '✓ RESOLVED';
 	position: absolute;
