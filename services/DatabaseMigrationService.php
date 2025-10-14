@@ -39,6 +39,13 @@ class DatabaseMigrationService extends BaseService
 		if ($migrationCounter > 0)
 		{
 			$this->getDatabaseService()->ExecuteDbStatement('VACUUM');
+
+			// Clear viewcache when migrations are executed
+			$viewcachePath = GROCY_DATAPATH . '/viewcache';
+			if (file_exists($viewcachePath))
+			{
+				EmptyFolder($viewcachePath);
+			}
 		}
 	}
 
