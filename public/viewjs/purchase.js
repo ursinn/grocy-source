@@ -31,11 +31,7 @@ $('#save-purchase-button').on('click', function(e)
 			jsonData.note = jsonForm.note;
 			jsonData.stock_label_type = jsonForm.stock_label_type;
 
-			if (!Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
-			{
-				jsonData.price = 0;
-			}
-			else
+			if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING && jsonForm.price && jsonForm.price !== "")
 			{
 				var amount = Number.parseFloat(jsonForm.display_amount);
 				if (BoolVal(productDetails.product.enable_tare_weight_handling))
