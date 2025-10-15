@@ -325,14 +325,20 @@ if (Grocy.Components.ProductPicker !== undefined)
 						Grocy.Components.LocationPicker.SetId(productDetails.location.id);
 					}
 
-					if (productDetails.last_price == null || productDetails.last_price == 0)
-					{
-						$("#price").val("")
-					}
-					else
-					{
-						$('#price').val((productDetails.last_price / Number.parseFloat($("#qu_id option:selected").attr("data-qu-factor"))).toFixed(Grocy.UserSettings.stock_decimal_places_prices_display));
-					}
+					// Price field is intentionally left empty by default instead of auto-filling from last purchase
+					// This prevents misleading price charts when prices haven't changed (would show flat line with no data points between purchases)
+					// When prices are different, they need to be manually entered anyway, so auto-fill provides no benefit
+					$("#price").val("")
+
+					// Commented out auto-fill from last price:
+					// if (productDetails.last_price == null || productDetails.last_price == 0)
+					// {
+					// 	$("#price").val("")
+					// }
+					// else
+					// {
+					// 	$('#price').val((productDetails.last_price / Number.parseFloat($("#qu_id option:selected").attr("data-qu-factor"))).toFixed(Grocy.UserSettings.stock_decimal_places_prices_display));
+					// }
 
 					var priceTypeUnitPrice = $("#price-type-unit-price");
 					var priceTypeUnitPriceLabel = $("[for=" + priceTypeUnitPrice.attr("id") + "]");
@@ -410,11 +416,12 @@ if (Grocy.Components.ProductPicker !== undefined)
 											Grocy.Components.ShoppingLocationPicker.SetId(barcode.shopping_location_id);
 										}
 
-										if (barcode.last_price)
-										{
-											$("#price").val(barcode.last_price);
-											$("#price-type-total-price").click();
-										}
+										// Commented out barcode last price auto-fill to keep price field empty by default
+										// if (barcode.last_price)
+										// {
+										// 	$("#price").val(barcode.last_price);
+										// 	$("#price-type-total-price").click();
+										// }
 
 										if (barcode.note)
 										{
