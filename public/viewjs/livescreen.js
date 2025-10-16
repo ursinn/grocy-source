@@ -107,6 +107,7 @@ $(document).ready(function() {
 		const timeAgo = getTimeAgo(activity.row_created_timestamp);
 		const typeClass = getActivityTypeClass(activity.transaction_type);
 		const amountText = getAmountText(activity);
+		const priceHtml = getPriceHtml(activity);
 
 		const currentAmountText = activity.current_amount ? `${activity.current_amount} ${getUnitName(activity, activity.current_amount)}` : 'Out of stock';
 		// Format due date with amount and get urgency info
@@ -154,6 +155,7 @@ $(document).ready(function() {
 				<div class="activity-amount ${getAmountColorClass(typeClass)}">
 					${amountText}
 				</div>
+				${priceHtml}
 				<div class="stock-info mt-2">
 					<div class="current-stock"><small class="text-muted"><i class="fas fa-box mr-1"></i><strong>${currentAmountText}</strong></small></div>
 					<div class="due-date"><small class="text-muted"><strong class="${dueDateClass}">${dueDateText}</strong></small></div>
@@ -223,6 +225,46 @@ $(document).ready(function() {
 			return `<i class="fas fa-edit"></i> +${amount} ${unit}`;
 		}
 		return `${amount} ${unit}`;
+	}
+
+	function getPriceHtml(activity) {
+		const priceEach = activity.price !== null && activity.price !== undefined ? parseFloat(activity.price) : NaN;
+		if (!Number.isFinite(priceEach) || priceEach <= 0) {
+			return '';
+		}
+
+		const unitName = activity.qu_name || getUnitName(activity, 1);
+		const perUnitText = unitName ? `${formatCurrency(priceEach)} / ${unitName}` : formatCurrency(priceEach);
+
+		return `
+			<div class="activity-price mt-1">
+				<i class="fas fa-coins mr-2 text-muted"></i>
+				<span class="price-amount">${perUnitText}</span>
+			</div>
+		`;
+	}
+
+	function formatCurrency(value) {
+		if (!Number.isFinite(value)) {
+			return '';
+		}
+
+		try {
+			if (window.Grocy && Grocy.Currency) {
+				const decimals = Grocy.UserSettings ? Grocy.UserSettings.stock_decimal_places_prices_display : 2;
+				return value.toLocaleString(undefined, {
+					style: 'currency',
+					currency: Grocy.Currency,
+					minimumFractionDigits: decimals,
+					maximumFractionDigits: decimals
+				});
+			}
+		} catch (e) { }
+
+		return value.toLocaleString(undefined, {
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		});
 	}
 
 	function getUnitName(activity, amount) {

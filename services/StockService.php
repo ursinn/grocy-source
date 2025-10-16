@@ -2075,6 +2075,12 @@ class StockService extends BaseService
 			}
 
 
+			$unitPrice = $stockLogEntry->price !== null ? floatval($stockLogEntry->price) : null;
+			$totalPrice = null;
+			if ($unitPrice !== null) {
+				$totalPrice = round(abs(floatval($stockLogEntry->amount)) * $unitPrice, 2);
+			}
+
 			// Publish the event directly
 			$data = [
 				'id' => $stockLogEntry->id,
@@ -2082,6 +2088,8 @@ class StockService extends BaseService
 				'product_id' => $stockLogEntry->product_id,
 				'product_name' => $productName,
 				'amount' => $stockLogEntry->amount,
+				'price' => $unitPrice,
+				'total_price' => $totalPrice,
 				'current_amount' => $currentAmount,
 				'next_due_date' => $nextDueDate,
 				'next_due_date_amount' => $nextDueDateAmount,

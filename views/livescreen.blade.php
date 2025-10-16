@@ -35,7 +35,7 @@
 
 .activity-grid {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
+	grid-template-columns: 1fr;
 	gap: 1.5em;
 	padding: 1em;
 	max-width: none;
@@ -273,6 +273,20 @@
 	color: #495057;
 }
 
+.activity-price {
+	display: flex;
+	align-items: center;
+	margin-top: 0.25em;
+	color: #6c757d;
+	font-size: 0.95em;
+}
+
+.activity-price .price-amount {
+	color: #343a40;
+	font-weight: 600;
+	margin-right: 0.75em;
+}
+
 /* =================================
    UI COMPONENTS
    ================================= */
@@ -326,6 +340,14 @@
 	background: #333131;
 	border-color: #383838;
 	color: #8f9ba5;
+}
+
+.night-mode .activity-price {
+	color: #8f9ba5;
+}
+
+.night-mode .activity-price .price-amount {
+	color: #c1c1c1;
 }
 
 /* =================================
@@ -390,6 +412,12 @@ body.in-iframe.controls-hidden .content-wrapper {
 /* =================================
    RESPONSIVE DESIGN
    ================================= */
+@media (min-width: 768px) {
+	.activity-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
 @media (min-width: 1200px) {
 	.activity-grid {
 		grid-template-columns: repeat(3, 1fr);
