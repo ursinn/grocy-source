@@ -2017,7 +2017,7 @@ class StockService extends BaseService
 		}
 	}
 
-	private function createStockLogEntry($data)
+	public function createStockLogEntry($data)
 	{
 		// Create and save stock log entry
 		$logRow = $this->getDatabase()->stock_log()->createRow($data);
