@@ -667,10 +667,10 @@ class StockApiController extends BaseApiController
 				throw new \Exception('Request body could not be parsed (probably invalid JSON format or missing/wrong Content-Type header)');
 			}
 
-			// if (!array_key_exists('amount', $requestBody))
-			// {
-			// 	throw new \Exception('An amount is required');
-			// }
+			if (!array_key_exists('amount', $requestBody))
+			{
+				throw new \Exception('An amount is required');
+			}
 
 			$bestBeforeDate = null;
 			if (array_key_exists('best_before_date', $requestBody) && IsIsoDate($requestBody['best_before_date']))
