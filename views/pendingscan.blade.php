@@ -130,11 +130,18 @@
 				<small class="text-muted d-block mb-3">{{ $__t('Find the product and add barcode') }} <code>{{ $pendingScan->barcode }}</code> {{ $__t('to it') }}</small>
 
 				<?php
+					switch($pendingScan->operation) {
+						case 'consume':
+							$targetUrl = '/inventory?flow=InplaceAddBarcodeToExistingProduct&barcode=' . urlencode($pendingScan->barcode) . '&returnto=' . urlencode($pendingScanUrl);
+							break;
+						default:
+							break;
+					}
 					// Build create product return URL from inside out:
-					$createProductUrl = '/product/new?flow=InplaceNewProductWithBarcode&barcode=' . urlencode($pendingScan->barcode) . '&returnto=' . urlencode($targetUrl);
+					$targetUrl = '/product/new?flow=InplaceNewProductWithBarcode&barcode=' . urlencode($pendingScan->barcode) . '&returnto=' . urlencode($targetUrl);
 				?>
 				<a class="btn btn-outline-primary btn-sm mb-2 d-block"
-					href="{{ $U($createProductUrl) }}">
+					href="{{ $U($targetUrl) }}">
 					<i class="fa-solid fa-plus"></i> {{ $__t('Create New Product') }}
 				</a>
 				<small class="text-muted d-block mb-3">{{ $__t('If the product doesn\'t exist, create a new one with this barcode') }}</small>
