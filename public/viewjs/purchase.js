@@ -207,7 +207,7 @@ $('#save-purchase-button').on('click', function(e)
 							}
 							else
 							{
-								Grocy.HandleReturnTo(5000); // Immediate redirect, but small delay to allow product barcode add to product call to finish
+								Grocy.HandleReturnTo(2000); // Immediate redirect, but small delay to allow product barcode add to product call to finish
 							}
 
 							Grocy.Components.ProductAmountPicker.Reset();
