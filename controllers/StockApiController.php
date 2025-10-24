@@ -932,6 +932,21 @@ class StockApiController extends BaseApiController
 		}
 	}
 
+	public function ProductBarcodesByUserfield(Request $request, Response $response, array $args)
+	{
+		try
+		{
+			return $this->ApiResponse(
+				$response,
+				$this->getStockService()->GetBarcodesByUserfield($args['userfieldName'], $args['userfieldValue'])
+			);
+		}
+		catch (\Exception $ex)
+		{
+			return $this->GenericErrorResponse($response, $ex->getMessage());
+		}
+	}
+
 	public function ProductPriceHistory(Request $request, Response $response, array $args)
 	{
 		try

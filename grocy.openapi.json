@@ -3552,6 +3552,49 @@
 				}
 			}
 		},
+		"/stock/barcodes/by-userfield/{userfieldName}/{userfieldValue}": {
+			"get": {
+				"summary": "Lists product barcodes that match a specific userfield value",
+				"tags": [
+					"Stock"
+				],
+				"parameters": [
+					{
+						"in": "path",
+						"name": "userfieldName",
+						"required": true,
+						"description": "The userfield name on the product barcode entity to filter by",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "userfieldValue",
+						"required": true,
+						"description": "The value to match against the given userfield",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A list of product barcode records matching the userfield value",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/ProductBarcodeUserfieldMatch"
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"/stock/barcodes/external-lookup/{barcode}": {
 			"get": {
 				"summary": "Executes an external barcode lookoup via the configured plugin with the given barcode",
@@ -5269,6 +5312,31 @@
 					},
 					"note": {
 						"type": "string"
+					}
+				}
+			},
+			"ProductBarcodeUserfieldMatch": {
+				"type": "object",
+				"properties": {
+					"product_barcode_id": {
+						"type": "integer"
+					},
+					"product_id": {
+						"type": "integer"
+					},
+					"barcode": {
+						"type": "string"
+					},
+					"matching_userfield": {
+						"type": "object",
+						"properties": {
+							"name": {
+								"type": "string"
+							},
+							"value": {
+								"type": "string"
+							}
+						}
 					}
 				}
 			},

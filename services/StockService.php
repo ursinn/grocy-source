@@ -879,6 +879,44 @@ class StockService extends BaseService
 		return $amount;
 	}
 
+	public function GetBarcodesByUserfield(string $userfieldName, string $userfieldValue): array
+	{
+		$userfieldMatches = $this->getDatabase()->userfield_values_resolved()->where(
+			'entity = :1 AND name = :2 AND value = :3',
+			'product_barcodes',
+			$userfieldName,
+			$userfieldValue
+		)->fetchAll();
+
+		if (empty($userfieldMatches))
+		{
+			return [];
+		}
+
+		$results = [];
+
+		foreach ($userfieldMatches as $match)
+		{
+			$barcodeRow = $this->getDatabase()->product_barcodes($match->object_id);
+			if ($barcodeRow === null)
+			{
+				continue;
+			}
+
+			$results[] = [
+				'product_barcode_id' => intval($barcodeRow->id),
+				'product_id' => intval($barcodeRow->product_id),
+				'barcode' => $barcodeRow->barcode,
+				'matching_userfield' => [
+					'name' => $match->name,
+					'value' => $match->value
+				]
+			];
+		}
+
+		return $results;
+	}
+
 	public function GetProductPriceHistory(int $productId)
 	{
 		if (!$this->ProductExists($productId))
