@@ -18,6 +18,21 @@ class StockService extends BaseService
 	const TRANSACTION_TYPE_TRANSFER_FROM = 'transfer_from';
 	const TRANSACTION_TYPE_TRANSFER_TO = 'transfer_to';
 
+	public function NotifyBarcodeActivity(string $action, array $payload = []): void
+	{
+		$eventType = 'barcode_' . $action;
+		$data = array_merge(['action' => $action], $payload);
+
+		try
+		{
+			\Grocy\Helpers\LiveEventManager::publishEvent($eventType, $data);
+		}
+		catch (\Exception $e)
+		{
+			error_log('Failed to publish barcode activity event: ' . $e->getMessage());
+		}
+	}
+
 	public function AddMissingProductsToShoppingList($listId = 1)
 	{
 		if (!$this->ShoppingListExists($listId))
@@ -618,6 +633,7 @@ class StockService extends BaseService
 	{
 		$plugin = $this->LoadExternalBarcodeLookupPlugin();
 		$pluginOutput = $plugin->Lookup($barcode);
+		$newBarcodeRow = null;
 
 		if ($pluginOutput !== null)
 		{
@@ -653,10 +669,18 @@ class StockService extends BaseService
 				$newProductRow = $this->getDatabase()->products()->createRow($productData);
 				$newProductRow->save();
 
-				$this->getDatabase()->product_barcodes()->createRow([
+				$newBarcodeRow = $this->getDatabase()->product_barcodes()->createRow([
 					'product_id' => $newProductRow->id,
 					'barcode' => $pluginOutput['__barcode']
-				])->save();
+				]);
+				$newBarcodeRow->save();
+
+				$this->NotifyBarcodeActivity('create', [
+					'barcode' => $pluginOutput['__barcode'],
+					'product_id' => intval($newProductRow->id),
+					'product_barcode_id' => isset($newBarcodeRow->id) ? intval($newBarcodeRow->id) : null,
+					'context' => 'external_lookup'
+				]);
 
 				if ($pluginOutput['qu_id_stock'] != $pluginOutput['qu_id_purchase'])
 				{
@@ -671,6 +695,15 @@ class StockService extends BaseService
 				$pluginOutput['id'] = $newProductRow->id;
 			}
 		}
+
+		$this->NotifyBarcodeActivity('external_lookup', [
+			'barcode' => $barcode,
+			'plugin' => $plugin::PLUGIN_NAME,
+			'success' => $pluginOutput !== null,
+			'product_id' => isset($pluginOutput['id']) ? intval($pluginOutput['id']) : null,
+			'auto_product_created' => ($pluginOutput !== null && $addFoundProduct === true),
+			'product_barcode_id' => ($newBarcodeRow !== null && isset($newBarcodeRow->id)) ? intval($newBarcodeRow->id) : null
+		]);
 
 		return $pluginOutput;
 	}
@@ -812,18 +845,46 @@ class StockService extends BaseService
 			$gc = new Grocycode($barcode);
 			if ($gc->GetType() != Grocycode::PRODUCT)
 			{
+				$this->NotifyBarcodeActivity('lookup_failed', [
+					'barcode' => $barcode,
+					'reason' => 'invalid_grocycode_type',
+					'source' => 'grocycode'
+				]);
 				throw new \Exception('Invalid Grocycode');
 			}
-			return $gc->GetId();
+
+			$productId = intval($gc->GetId());
+
+			$this->NotifyBarcodeActivity('lookup', [
+				'barcode' => $barcode,
+				'product_id' => $productId,
+				'source' => 'grocycode'
+			]);
+
+			return $productId;
 		}
 
 		$potentialProduct = $this->getDatabase()->product_barcodes()->where('barcode = :1 COLLATE NOCASE', $barcode)->fetch();
 		if ($potentialProduct === null)
 		{
+			$this->NotifyBarcodeActivity('lookup_failed', [
+				'barcode' => $barcode,
+				'reason' => 'not_found',
+				'source' => 'product_barcodes'
+			]);
 			throw new \Exception("No product with barcode $barcode found");
 		}
 
-		return $potentialProduct->product_id;
+		$productId = intval($potentialProduct->product_id);
+
+		$this->NotifyBarcodeActivity('lookup', [
+			'barcode' => $barcode,
+			'product_id' => $productId,
+			'source' => 'product_barcodes',
+			'product_barcode_id' => isset($potentialProduct->id) ? intval($potentialProduct->id) : null
+		]);
+
+		return $productId;
 	}
 
 	public function GetBarcodeAmount(string $barcode)
@@ -835,26 +896,51 @@ class StockService extends BaseService
 			$gc = new Grocycode($barcode);
 			if ($gc->GetType() != Grocycode::PRODUCT)
 			{
+				$this->NotifyBarcodeActivity('amount_lookup_failed', [
+					'barcode' => $barcode,
+					'reason' => 'invalid_grocycode_type',
+					'source' => 'grocycode'
+				]);
 				throw new \Exception('Invalid Grocycode');
 			}
 
 			$product = $this->getDatabase()->products($gc->GetId());
 			if ($product === null)
 			{
+				$this->NotifyBarcodeActivity('amount_lookup_failed', [
+					'barcode' => $barcode,
+					'reason' => 'product_not_found',
+					'source' => 'grocycode'
+				]);
 				throw new \Exception('Product not found');
 			}
 
-			return floatval($product->quick_consume_amount);
+			$amount = floatval($product->quick_consume_amount);
+
+			$this->NotifyBarcodeActivity('amount_lookup', [
+				'barcode' => $barcode,
+				'product_id' => intval($product->id),
+				'source' => 'grocycode',
+				'amount' => $amount
+			]);
+
+			return $amount;
 		}
 
 		$barcodeEntry = $this->getDatabase()->product_barcodes()->where('barcode = :1 COLLATE NOCASE', $barcode)->fetch();
 		if ($barcodeEntry === null)
 		{
+			$this->NotifyBarcodeActivity('amount_lookup_failed', [
+				'barcode' => $barcode,
+				'reason' => 'not_found',
+				'source' => 'product_barcodes'
+			]);
 			throw new \Exception("No product with barcode $barcode found");
 		}
 
 		// Get the configured amount or default to 1 if not set
 		$amount = $barcodeEntry->amount ? floatval($barcodeEntry->amount) : 1;
+		$wasConverted = false;
 
 		// If the barcode has a quantity unit configured, convert to the product's stock unit
 		if ($barcodeEntry->qu_id !== null)
@@ -862,6 +948,11 @@ class StockService extends BaseService
 			$product = $this->getDatabase()->products($barcodeEntry->product_id);
 			if ($product === null)
 			{
+				$this->NotifyBarcodeActivity('amount_lookup_failed', [
+					'barcode' => $barcode,
+					'reason' => 'product_not_found',
+					'source' => 'product_barcodes'
+				]);
 				throw new \Exception('Product not found');
 			}
 
@@ -872,9 +963,20 @@ class StockService extends BaseService
 				if ($conversion !== null)
 				{
 					$amount = $amount * $conversion->factor;
+					$wasConverted = true;
 				}
 			}
 		}
+
+		$this->NotifyBarcodeActivity('amount_lookup', [
+			'barcode' => $barcode,
+			'product_id' => intval($barcodeEntry->product_id),
+			'source' => 'product_barcodes',
+			'amount' => $amount,
+			'product_barcode_id' => intval($barcodeEntry->id),
+			'quantity_unit_id' => $barcodeEntry->qu_id !== null ? intval($barcodeEntry->qu_id) : null,
+			'was_converted' => $wasConverted
+		]);
 
 		return $amount;
 	}

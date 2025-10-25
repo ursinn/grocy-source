@@ -51,6 +51,20 @@ class GenericEntityApiController extends BaseApiController
 				$newRow->save();
 				$newObjectId = $this->getDatabase()->lastInsertId();
 
+				if ($args['entity'] == 'product_barcodes')
+				{
+						$createdBarcode = $this->getDatabase()->{$args['entity']}($newObjectId);
+						if ($createdBarcode !== null)
+						{
+							$this->getStockService()->NotifyBarcodeActivity('create', [
+								'barcode' => $createdBarcode->barcode,
+								'product_id' => intval($createdBarcode->product_id),
+								'product_barcode_id' => intval($createdBarcode->id),
+								'context' => 'api'
+							]);
+						}
+				}
+
 				// TODO: This should be better done somehow in StockService
 				if ($args['entity'] == 'products' && boolval($this->getUsersService()->GetUserSetting(GROCY_USER_ID, 'shopping_list_auto_add_below_min_stock_amount')))
 				{
@@ -111,8 +125,27 @@ class GenericEntityApiController extends BaseApiController
 			{
 				return $this->GenericErrorResponse($response, 'Object not found', 400);
 			}
+				$deletedRowData = null;
+				if ($args['entity'] == 'product_barcodes')
+				{
+					$deletedRowData = (object)[
+						'barcode' => $row->barcode,
+						'product_id' => $row->product_id,
+						'id' => $row->id
+					];
+				}
 
-			$row->delete();
+				$row->delete();
+
+				if ($args['entity'] == 'product_barcodes' && $deletedRowData !== null)
+				{
+					$this->getStockService()->NotifyBarcodeActivity('delete', [
+						'barcode' => $deletedRowData->barcode,
+						'product_id' => intval($deletedRowData->product_id),
+						'product_barcode_id' => intval($deletedRowData->id),
+						'context' => 'api'
+					]);
+			}
 
 			return $this->EmptyApiResponse($response);
 		}
@@ -166,8 +199,32 @@ class GenericEntityApiController extends BaseApiController
 				{
 					return $this->GenericErrorResponse($response, 'Object not found', 400);
 				}
+				$previousData = null;
+				if ($args['entity'] == 'product_barcodes')
+				{
+					$previousData = [
+						'barcode' => $row->barcode,
+						'product_id' => intval($row->product_id)
+					];
+				}
 
 				$row->update($requestBody);
+
+					if ($args['entity'] == 'product_barcodes')
+					{
+						$updatedRow = $this->getDatabase()->{$args['entity']}($args['objectId']);
+						if ($updatedRow !== null)
+						{
+							$this->getStockService()->NotifyBarcodeActivity('update', [
+								'barcode' => $updatedRow->barcode,
+								'product_id' => intval($updatedRow->product_id),
+								'product_barcode_id' => intval($updatedRow->id),
+								'changes' => $requestBody,
+								'previous' => $previousData,
+							'context' => 'api'
+						]);
+					}
+				}
 
 				// TODO: This should be better done somehow in StockService
 				if ($args['entity'] == 'products' && boolval($this->getUsersService()->GetUserSetting(GROCY_USER_ID, 'shopping_list_auto_add_below_min_stock_amount')))
