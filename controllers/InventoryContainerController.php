@@ -73,7 +73,7 @@ class InventoryContainerController extends BaseController
 			if (!$allowRemainingModification) {
 				throw new \Exception('Stock increased. Please specify where this stock came from or select how to handle the stock increase.');
 			}
-			
+
 			// Add stock without source
 			return $this->handleStockAdditionWithoutSource($productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId);
 		}
@@ -85,7 +85,7 @@ class InventoryContainerController extends BaseController
 		}
 
 		$availableFromSource = floatval($sourceStockEntry->amount);
-		
+
 		if ($availableFromSource >= $amountDifference) {
 			// Source has enough stock for full transfer
 			return $this->handleFullTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $transactionId);
@@ -138,7 +138,7 @@ class InventoryContainerController extends BaseController
 			'best_before_date' => $sourceStockEntry->best_before_date,
 			'purchased_date' => $sourceStockEntry->purchased_date,
 			'stock_id' => $sourceStockId,
-			'transaction_type' => 'transfer',
+			'transaction_type' => 'transfer_from',
 			'price' => $sourceStockEntry->price,
 			'location_id' => $sourceStockEntry->location_id,
 			'transaction_id' => $transactionId,
@@ -152,7 +152,7 @@ class InventoryContainerController extends BaseController
 			'best_before_date' => $stockEntry->best_before_date,
 			'purchased_date' => $stockEntry->purchased_date,
 			'stock_id' => $stockId,
-			'transaction_type' => 'transfer',
+			'transaction_type' => 'transfer_to',
 			'price' => $stockEntry->price,
 			'location_id' => $stockEntry->location_id,
 			'transaction_id' => $transactionId,
@@ -180,7 +180,7 @@ class InventoryContainerController extends BaseController
 			'best_before_date' => $sourceStockEntry->best_before_date,
 			'purchased_date' => $sourceStockEntry->purchased_date,
 			'stock_id' => $sourceStockId,
-			'transaction_type' => 'transfer',
+			'transaction_type' => 'transfer_from',
 			'price' => $sourceStockEntry->price,
 			'location_id' => $sourceStockEntry->location_id,
 			'transaction_id' => $transactionId,
@@ -195,7 +195,7 @@ class InventoryContainerController extends BaseController
 			'best_before_date' => $stockEntry->best_before_date,
 			'purchased_date' => $stockEntry->purchased_date,
 			'stock_id' => $stockId,
-			'transaction_type' => 'transfer',
+			'transaction_type' => 'transfer_to',
 			'price' => $stockEntry->price,
 			'location_id' => $stockEntry->location_id,
 			'transaction_id' => $transactionId,
@@ -259,7 +259,7 @@ class InventoryContainerController extends BaseController
 			'best_before_date' => $stockEntry->best_before_date,
 			'purchased_date' => $stockEntry->purchased_date,
 			'stock_id' => $stockId,
-			'transaction_type' => 'transfer',
+			'transaction_type' => 'transfer_from',
 			'price' => $stockEntry->price,
 			'location_id' => $stockEntry->location_id,
 			'transaction_id' => $transactionId,
@@ -273,7 +273,7 @@ class InventoryContainerController extends BaseController
 			'best_before_date' => $destStockEntry->best_before_date,
 			'purchased_date' => $destStockEntry->purchased_date,
 			'stock_id' => $destStockId,
-			'transaction_type' => 'transfer',
+			'transaction_type' => 'transfer_to',
 			'price' => $destStockEntry->price,
 			'location_id' => $destStockEntry->location_id,
 			'transaction_id' => $transactionId,
@@ -301,7 +301,7 @@ class InventoryContainerController extends BaseController
 			'location_id' => $stockEntry->location_id,
 			'transaction_id' => $transactionId,
 			'user_id' => GROCY_USER_ID,
-			'note' => sprintf('Container inventory consumption: Gross %.2f, Container %.2f, Net %.2f', 
+			'note' => sprintf('Container inventory consumption: Gross %.2f, Container %.2f, Net %.2f',
 				$grossWeight, $this->getContainerWeight($stockId, null), $netWeight)
 		]);
 
@@ -358,7 +358,7 @@ class InventoryContainerController extends BaseController
 
 			$productId = $grocycode->GetId();
 			$extraData = $grocycode->GetExtraData();
-			
+
 			if (empty($extraData) || empty($extraData[0]))
 			{
 				throw new \Exception('Barcode does not contain stock entry information');
@@ -380,14 +380,14 @@ class InventoryContainerController extends BaseController
 
 			$containerWeight = $this->getContainerWeight($stockId, $containerWeightUserfield->id);
 			$grossWeight = floatval($requestBody['gross_weight']);
-			
+
 			// Validate gross weight
 			$this->validateGrossWeight($grossWeight, $containerWeight);
 
 			$netWeight = $grossWeight - $containerWeight;
 			$oldAmount = floatval($stockEntry->amount);
 			$amountDifference = $netWeight - $oldAmount;
-			
+
 			// Check if there's no significant change
 			if (!$this->hasSignificantChange($amountDifference)) {
 				throw new \Exception('No inventory change detected - adjust the gross weight to reflect actual inventory');
