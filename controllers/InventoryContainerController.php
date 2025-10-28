@@ -2,6 +2,8 @@
 
 namespace Grocy\Controllers;
 
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Grocy\Helpers\Grocycode;
 use DI\Container;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -96,7 +98,7 @@ class InventoryContainerController extends BaseController
 			throw new \Exception('Source stock entry does not have enough stock for this transfer. Select "Add remaining stock without source" to allow partial transfer.');
 		}
 
-		return $this->handlePartialTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId);
+		return $this->handleTransferWithSourceShortfall($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId);
 	}
 
 	private function handleStockAdditionWithoutSource($productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId)
@@ -163,15 +165,19 @@ class InventoryContainerController extends BaseController
 		$this->getDatabase()->commitTransaction();
 	}
 
-	private function handlePartialTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $destinationStockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId)
+	private function handleTransferWithSourceShortfall($productId, $sourceStockId, $stockId, $sourceStockEntry, $destinationStockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId)
 	{
-		$remainingAmount = $amountDifference - $availableFromSource;
+		$remainingAmount = $this->calculatePreciseDifference($amountDifference, $availableFromSource);
+		$currentDestinationAmount = BigDecimal::of($this->normalizeNumericInput($destinationStockEntry->amount));
+		$availableDecimal = BigDecimal::of($this->normalizeNumericInput($availableFromSource));
+		$remainingDecimal = BigDecimal::of($this->normalizeNumericInput($remainingAmount));
+		$destinationAmountAfterTransfer = floatval($currentDestinationAmount->plus($availableDecimal)->__toString());
 
 		$this->getDatabase()->beginTransaction();
 
-		// Update amounts using StockService for proper cleanup
-		$this->getStockService()->UpdateStockEntryAmount($sourceStockEntry, 0); // Transfer all available stock
-		$destinationStockEntry->update(['amount' => $netWeight]);
+		// Step 1: transfer every available unit from the source entry
+		$this->getStockService()->UpdateStockEntryAmount($sourceStockEntry, 0);
+		$destinationStockEntry->update(['amount' => $destinationAmountAfterTransfer]);
 
 		// Log transfer from source
 		$this->createStockLogEntry([
@@ -203,10 +209,11 @@ class InventoryContainerController extends BaseController
 			'note' => "Container inventory partial transfer from stock_id {$sourceStockId}"
 		]);
 
-		// Log remaining amount as inventory correction
+		// Step 2: add the missing amount as a direct inventory adjustment
+		$destinationStockEntry->update(['amount' => $netWeight]);
 		$this->createStockLogEntry([
 			'product_id' => $productId,
-			'amount' => $remainingAmount,
+			'amount' => floatval($remainingDecimal->__toString()),
 			'best_before_date' => $destinationStockEntry->best_before_date,
 			'purchased_date' => $destinationStockEntry->purchased_date,
 			'stock_id' => $stockId,
@@ -219,6 +226,40 @@ class InventoryContainerController extends BaseController
 		]);
 
 		$this->getDatabase()->commitTransaction();
+	}
+
+	// Use BigDecimal to subtract without relying on float arithmetic
+	private function calculatePreciseDifference($minuend, $subtrahend, int $scale = 6): string
+	{
+		$result = BigDecimal::of($this->normalizeNumericInput($minuend))
+			->minus(BigDecimal::of($this->normalizeNumericInput($subtrahend)))
+			->toScale($scale, RoundingMode::HALF_UP)
+			->__toString();
+
+		return rtrim(rtrim($result, '0'), '.') ?: '0';
+	}
+
+	private function normalizeNumericInput($value): string
+	{
+		if ($value instanceof BigDecimal) {
+			return $value->__toString();
+		}
+
+		if (is_string($value)) {
+			$value = trim($value);
+			return $value === '' ? '0' : $value;
+		}
+
+		if (is_int($value)) {
+			return (string) $value;
+		}
+
+		if (is_float($value)) {
+			$stringValue = sprintf('%.10F', $value);
+			return rtrim(rtrim($stringValue, '0'), '.') ?: '0';
+		}
+
+		return '0';
 	}
 
 	private function handleStockDecrease($requestBody, $productId, $stockId, $stockEntry, $amountDifference, $netWeight, $transactionId)

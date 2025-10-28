@@ -12,6 +12,7 @@
 		"erusev/parsedown": "^1.7",
 		"gumlet/php-image-resize": "^2.0",
 		"ezyang/htmlpurifier": "^4.13",
+		"brick/math": "^0.14",
 		"interficieis/php-barcode": "^2.0.2",
 		"guzzlehttp/guzzle": "^7.0",
 		"mike42/escpos-php": "^4.0"
