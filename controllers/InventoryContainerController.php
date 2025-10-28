@@ -163,7 +163,7 @@ class InventoryContainerController extends BaseController
 		$this->getDatabase()->commitTransaction();
 	}
 
-	private function handlePartialTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $stockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId)
+	private function handlePartialTransfer($productId, $sourceStockId, $stockId, $sourceStockEntry, $destinationStockEntry, $amountDifference, $netWeight, $availableFromSource, $transactionId)
 	{
 		$remainingAmount = $amountDifference - $availableFromSource;
 
@@ -171,7 +171,7 @@ class InventoryContainerController extends BaseController
 
 		// Update amounts using StockService for proper cleanup
 		$this->getStockService()->UpdateStockEntryAmount($sourceStockEntry, 0); // Transfer all available stock
-		$stockEntry->update(['amount' => $netWeight]);
+		$destinationStockEntry->update(['amount' => $netWeight]);
 
 		// Log transfer from source
 		$this->createStockLogEntry([
@@ -192,12 +192,12 @@ class InventoryContainerController extends BaseController
 		$this->createStockLogEntry([
 			'product_id' => $productId,
 			'amount' => $availableFromSource,
-			'best_before_date' => $stockEntry->best_before_date,
-			'purchased_date' => $stockEntry->purchased_date,
+			'best_before_date' => $destinationStockEntry->best_before_date,
+			'purchased_date' => $destinationStockEntry->purchased_date,
 			'stock_id' => $stockId,
 			'transaction_type' => 'transfer_to',
-			'price' => $stockEntry->price,
-			'location_id' => $stockEntry->location_id,
+			'price' => $destinationStockEntry->price,
+			'location_id' => $destinationStockEntry->location_id,
 			'transaction_id' => $transactionId,
 			'user_id' => GROCY_USER_ID,
 			'note' => "Container inventory partial transfer from stock_id {$sourceStockId}"
@@ -207,12 +207,12 @@ class InventoryContainerController extends BaseController
 		$this->createStockLogEntry([
 			'product_id' => $productId,
 			'amount' => $remainingAmount,
-			'best_before_date' => $stockEntry->best_before_date,
-			'purchased_date' => $stockEntry->purchased_date,
+			'best_before_date' => $destinationStockEntry->best_before_date,
+			'purchased_date' => $destinationStockEntry->purchased_date,
 			'stock_id' => $stockId,
 			'transaction_type' => 'inventory-correction',
-			'price' => $stockEntry->price,
-			'location_id' => $stockEntry->location_id,
+			'price' => $destinationStockEntry->price,
+			'location_id' => $destinationStockEntry->location_id,
 			'transaction_id' => $transactionId,
 			'user_id' => GROCY_USER_ID,
 			'note' => "Container inventory: Additional stock added directly (source does not have enough available)"
@@ -233,7 +233,7 @@ class InventoryContainerController extends BaseController
 		}
 	}
 
-	private function handleTransferDecrease($requestBody, $productId, $stockId, $stockEntry, $consumeAmount, $netWeight, $transactionId)
+	private function handleTransferDecrease($requestBody, $productId, $stockId, $sourceStockEntry, $consumeAmount, $netWeight, $transactionId)
 	{
 		if (empty($requestBody['destination_stock_entry'])) {
 			throw new \Exception('Stock decreased. Please specify destination stock entry for transfer.');
@@ -249,19 +249,19 @@ class InventoryContainerController extends BaseController
 		$this->getDatabase()->beginTransaction();
 
 		// Update amounts
-		$stockEntry->update(['amount' => $netWeight]);
+		$sourceStockEntry->update(['amount' => $netWeight]);
 		$destStockEntry->update(['amount' => floatval($destStockEntry->amount) + $consumeAmount]);
 
 		// Log transfers
 		$this->createStockLogEntry([
 			'product_id' => $productId,
 			'amount' => -$consumeAmount,
-			'best_before_date' => $stockEntry->best_before_date,
-			'purchased_date' => $stockEntry->purchased_date,
+			'best_before_date' => $sourceStockEntry->best_before_date,
+			'purchased_date' => $sourceStockEntry->purchased_date,
 			'stock_id' => $stockId,
 			'transaction_type' => 'transfer_from',
-			'price' => $stockEntry->price,
-			'location_id' => $stockEntry->location_id,
+			'price' => $sourceStockEntry->price,
+			'location_id' => $sourceStockEntry->location_id,
 			'transaction_id' => $transactionId,
 			'user_id' => GROCY_USER_ID,
 			'note' => "Container inventory transfer to stock_id {$destStockId}"
