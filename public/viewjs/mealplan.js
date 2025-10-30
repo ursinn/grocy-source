@@ -161,11 +161,11 @@ $(".calendar").each(function()
 				var costsAndCaloriesPerServing = ""
 				if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
 				{
-					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-currency">' + resolvedRecipe.costs + '</span> / <span class="locale-number locale-number-generic">' + resolvedRecipe.calories / mealPlanEntry.recipe_servings + '</span> ' + Grocy.EnergyUnit + ' ' + __t('per serving') + '</h5>';
+					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-currency">' + resolvedRecipe.costs + '</span> ' + __t('total') + ' <span class="locale-number locale-number-generic">' + resolvedRecipe.calories / mealPlanEntry.recipe_servings + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
 				}
 				else
 				{
-					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-generic">' + resolvedRecipe.calories / mealPlanEntry.recipe_servings + '</span> ' + Grocy.EnergyUnit + ' ' + __t('per serving') + '</h5>';
+					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-generic">' + resolvedRecipe.calories / mealPlanEntry.recipe_servings + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
 				}
 
 				if (!Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK)

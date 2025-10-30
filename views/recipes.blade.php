@@ -407,11 +407,7 @@
 						<div class="row ml-1">
 							@if(!empty($calories) && $calories > 0)
 							<div class="col-4">
-								<label>{{ GROCY_ENERGY_UNIT }}</label>&nbsp;
-								<i class="fa-solid fa-question-circle text-muted d-print-none"
-									data-toggle="tooltip"
-									data-trigger="hover click"
-									title="{{ $__t('per serving') }}"></i>
+								<label>{{ GROCY_ENERGY_UNIT }}{{ $__t('/serv.') }}</label>&nbsp;
 								<h3 class="locale-number locale-number-generic pt-0">{{ $calories }}</h3>
 							</div>
 							@endif
@@ -549,7 +545,7 @@
 										</span>
 										@endif
 										@if(GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING) <span class="float-right font-italic ml-2 locale-number locale-number-currency">{{ $selectedRecipePosition->costs }}</span> @endif
-										<span class="float-right font-italic"><span class="locale-number locale-number-generic">{{ $selectedRecipePosition->calories }}</span> {{ $__t('Calories') }}</span>
+										<span class="float-right font-italic"><span class="locale-number locale-number-generic">{{ $selectedRecipePosition->calories }}</span> {{ GROCY_ENERGY_UNIT }}{{ $__t('/serv.') }}</span>
 										@if(!empty($selectedRecipePosition->recipe_variable_amount))
 										<div class="small text-muted font-italic">{{ $__t('Variable amount') }}</div>
 										@endif
