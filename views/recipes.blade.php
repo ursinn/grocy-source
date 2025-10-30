@@ -512,20 +512,69 @@
 										$productQuConversions = FindAllObjectsInArrayByPropertyValue($quantityUnitConversionsResolved, 'product_id', $product->id);
 										$productQuConversions = FindAllObjectsInArrayByPropertyValue($productQuConversions, 'from_qu_id', $product->qu_id_stock);
 										$productQuConversion = FindObjectInArrayByPropertyValue($productQuConversions, 'to_qu_id', $selectedRecipePosition->qu_id);
+										$recipeAmountStock = $selectedRecipePosition->recipe_amount;
+										$displayRecipeAmount = $recipeAmountStock;
 										if ($productQuConversion && $selectedRecipePosition->only_check_single_unit_in_stock == 0)
 										{
-										$selectedRecipePosition->recipe_amount = $selectedRecipePosition->recipe_amount * $productQuConversion->factor;
+											$displayRecipeAmount = $recipeAmountStock * $productQuConversion->factor;
 										}
+										$displayQuantityUnit = FindObjectInArrayByPropertyValue($quantityUnits, 'id', $selectedRecipePosition->qu_id);
+										$displayQuantityUnitName = $displayQuantityUnit !== null ? $displayQuantityUnit->name : '';
+										$displayQuantityUnitNamePlural = $displayQuantityUnit !== null ? $displayQuantityUnit->name_plural : $displayQuantityUnitName;
+										$effectiveProduct = null;
+										$effectiveProductName = '';
+										$effectiveSubProductAmount = null;
+										$effectiveQuantityUnit = null;
+										$effectiveQuantityUnitName = '';
+										$effectiveQuantityUnitNamePlural = '';
+										if ($selectedRecipePosition->product_id != $selectedRecipePosition->product_id_effective)
+										{
+											$effectiveProduct = FindObjectInArrayByPropertyValue($products, 'id', $selectedRecipePosition->product_id_effective);
+											if ($effectiveProduct !== null)
+											{
+												$effectiveProductName = $effectiveProduct->name;
+												$effectiveSubProductAmount = $recipeAmountStock;
+												if ($effectiveProduct->qu_id_stock != $product->qu_id_stock)
+												{
+													$effectiveConversions = FindAllObjectsInArrayByPropertyValue($quantityUnitConversionsResolved, 'product_id', $effectiveProduct->id);
+													$effectiveConversions = FindAllObjectsInArrayByPropertyValue($effectiveConversions, 'from_qu_id', $product->qu_id_stock);
+													$effectiveConversion = FindObjectInArrayByPropertyValue($effectiveConversions, 'to_qu_id', $effectiveProduct->qu_id_stock);
+													if ($effectiveConversion !== null)
+													{
+														$effectiveSubProductAmount = $effectiveSubProductAmount * $effectiveConversion->factor;
+													}
+													else
+													{
+														$effectiveSubProductAmount = null;
+													}
+												}
+												if ($effectiveSubProductAmount !== null)
+												{
+													$effectiveQuantityUnit = FindObjectInArrayByPropertyValue($quantityUnits, 'id', $effectiveProduct->qu_id_stock);
+													if ($effectiveQuantityUnit !== null)
+													{
+														$effectiveQuantityUnitName = $effectiveQuantityUnit->name;
+														$effectiveQuantityUnitNamePlural = $effectiveQuantityUnit->name_plural;
+													}
+													else
+													{
+														$effectiveSubProductAmount = null;
+														$effectiveQuantityUnit = null;
+													}
+												}
+											}
+										}
+										$productName = $product !== null ? $product->name : '';
 										@endphp
 										<span class="productcard-trigger cursor-link @if($selectedRecipePosition->due_score == 20) text-danger @elseif($selectedRecipePosition->due_score == 10) text-secondary @elseif($selectedRecipePosition->due_score == 1) text-warning @endif"
 											data-product-id="{{ $selectedRecipePosition->product_id }}">
 											@if(!empty($selectedRecipePosition->recipe_variable_amount))
 											{{ $selectedRecipePosition->recipe_variable_amount }}
 											@else
-											<span class="locale-number locale-number-quantity-amount">@if($selectedRecipePosition->recipe_amount == round($selectedRecipePosition->recipe_amount, 2)){{ round($selectedRecipePosition->recipe_amount, 2) }}@else{{ $selectedRecipePosition->recipe_amount }}@endif</span>
-											{{ $__n($selectedRecipePosition->recipe_amount, FindObjectInArrayByPropertyValue($quantityUnits, 'id', $selectedRecipePosition->qu_id)->name, FindObjectInArrayByPropertyValue($quantityUnits, 'id', $selectedRecipePosition->qu_id)->name_plural) }}
+											<span class="locale-number locale-number-quantity-amount">@if($displayRecipeAmount == round($displayRecipeAmount, 2)){{ round($displayRecipeAmount, 2) }}@else{{ $displayRecipeAmount }}@endif</span>
+											{{ $__n($displayRecipeAmount, $displayQuantityUnitName, $displayQuantityUnitNamePlural) }}
 											@endif
-											{{ FindObjectInArrayByPropertyValue($products, 'id', $selectedRecipePosition->product_id)->name }}
+											{{ $productName }}
 										</span>
 										@if(GROCY_FEATURE_FLAG_STOCK)
 										<span class="
@@ -534,14 +583,17 @@
 											<span class="timeago-contextual">@if(FindObjectInArrayByPropertyValue($recipePositionsResolved, 'recipe_pos_id', $selectedRecipePosition->id)->need_fulfilled == 1) {{ $__t('Enough in stock') }} (<span class="locale-number locale-number-quantity-amount">{{ $selectedRecipePosition->stock_amount }}</span> {{ $__n($selectedRecipePosition->stock_amount, FindObjectInArrayByPropertyValue($quantityUnits, 'id', $product->qu_id_stock)->name, FindObjectInArrayByPropertyValue($quantityUnits, 'id', $product->qu_id_stock)->name_plural) }}) @else {{ $__t('Not enough in stock, %1$s missing, %2$s already on shopping list', round($selectedRecipePosition->missing_amount, 2), round($selectedRecipePosition->amount_on_shopping_list, 2)) }} @endif</span>
 										</span>
 										@endif
-										@if($selectedRecipePosition->product_id != $selectedRecipePosition->product_id_effective)
+										@if($selectedRecipePosition->product_id != $selectedRecipePosition->product_id_effective && $effectiveProduct !== null)
 										<br class="d-print-none">
 										<span class="productcard-trigger cursor-link text-muted d-print-none"
 											data-product-id="{{ $selectedRecipePosition->product_id_effective }}"
 											data-toggle="tooltip"
 											data-trigger="hover click"
-											title="{{ $__t('The parent product %1$s is currently not in stock, %2$s is the current next sub product based on the default consume rule (Opened first, then first due first, then first in first out)', FindObjectInArrayByPropertyValue($products, 'id', $selectedRecipePosition->product_id)->name, FindObjectInArrayByPropertyValue($products, 'id', $selectedRecipePosition->product_id_effective)->name) }}">
-											<i class="fa-solid fa-exchange-alt"></i> {{ FindObjectInArrayByPropertyValue($products, 'id', $selectedRecipePosition->product_id_effective)->name }}
+											title="{{ $__t('The parent product %1$s is currently not in stock, %2$s is the current next sub product based on the default consume rule (Opened first, then first due first, then first in first out)', $productName, $effectiveProductName) }}">
+											<i class="fa-solid fa-exchange-alt"></i> {{ $effectiveProductName }}
+											@if($effectiveSubProductAmount !== null && $effectiveQuantityUnit !== null && $effectiveQuantityUnit->id != $selectedRecipePosition->qu_id)
+											(<span class="locale-number locale-number-quantity-amount">@if($effectiveSubProductAmount == round($effectiveSubProductAmount, 2)){{ round($effectiveSubProductAmount, 2) }}@else{{ $effectiveSubProductAmount }}@endif</span> {{ $__n($effectiveSubProductAmount, $effectiveQuantityUnitName, $effectiveQuantityUnitNamePlural) }})
+											@endif
 										</span>
 										@endif
 										@if(GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING) <span class="float-right font-italic ml-2 locale-number locale-number-currency">{{ $selectedRecipePosition->costs }}</span> @endif
