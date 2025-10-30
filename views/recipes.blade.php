@@ -512,70 +512,95 @@
 										$productQuConversions = FindAllObjectsInArrayByPropertyValue($quantityUnitConversionsResolved, 'product_id', $product->id);
 										$productQuConversions = FindAllObjectsInArrayByPropertyValue($productQuConversions, 'from_qu_id', $product->qu_id_stock);
 										$productQuConversion = FindObjectInArrayByPropertyValue($productQuConversions, 'to_qu_id', $selectedRecipePosition->qu_id);
-										$recipeAmountStock = $selectedRecipePosition->recipe_amount;
-										$displayRecipeAmount = $recipeAmountStock;
-										if ($productQuConversion && $selectedRecipePosition->only_check_single_unit_in_stock == 0)
-										{
-											$displayRecipeAmount = $recipeAmountStock * $productQuConversion->factor;
-										}
-										$displayQuantityUnit = FindObjectInArrayByPropertyValue($quantityUnits, 'id', $selectedRecipePosition->qu_id);
-										$displayQuantityUnitName = $displayQuantityUnit !== null ? $displayQuantityUnit->name : '';
-										$displayQuantityUnitNamePlural = $displayQuantityUnit !== null ? $displayQuantityUnit->name_plural : $displayQuantityUnitName;
-										$effectiveProduct = null;
-										$effectiveProductName = '';
-										$effectiveSubProductAmount = null;
-										$effectiveQuantityUnit = null;
-										$effectiveQuantityUnitName = '';
-										$effectiveQuantityUnitNamePlural = '';
+											$recipeAmount = $selectedRecipePosition->recipe_amount;
+											$recipeAmountStock = $recipeAmount;
+											$displayRecipeAmount = $recipeAmount;
+											if ($productQuConversion)
+											{
+												$conversionFactor = floatval($productQuConversion->factor);
+												if ($selectedRecipePosition->only_check_single_unit_in_stock == 0)
+												{
+													$displayRecipeAmount = $recipeAmountStock * $conversionFactor;
+												}
+												elseif ($conversionFactor != 0)
+												{
+													$recipeAmountStock = $recipeAmountStock / $conversionFactor;
+												}
+												else
+												{
+													$recipeAmountStock = null;
+												}
+											}
+											elseif ($selectedRecipePosition->only_check_single_unit_in_stock == 1)
+											{
+												$recipeAmountStock = null;
+											}
+											$displayQuantityUnit = FindObjectInArrayByPropertyValue($quantityUnits, 'id', $selectedRecipePosition->qu_id);
+											$displayQuantityUnitName = $displayQuantityUnit !== null ? $displayQuantityUnit->name : '';
+											$displayQuantityUnitNamePlural = $displayQuantityUnit !== null ? $displayQuantityUnit->name_plural : $displayQuantityUnitName;
+											$displayAmountForPluralization = $displayRecipeAmount;
+											if (is_numeric($displayAmountForPluralization) && abs(abs($displayAmountForPluralization) - 1) < 0.00001)
+											{
+												$displayAmountForPluralization = $displayAmountForPluralization < 0 ? -1 : 1;
+											}
+											$effectiveProduct = null;
+											$effectiveProductName = '';
+											$effectiveSubProductAmount = null;
+											$effectiveQuantityUnit = null;
+											$effectiveQuantityUnitName = '';
+											$effectiveQuantityUnitNamePlural = '';
 										if ($selectedRecipePosition->product_id != $selectedRecipePosition->product_id_effective)
 										{
 											$effectiveProduct = FindObjectInArrayByPropertyValue($products, 'id', $selectedRecipePosition->product_id_effective);
 											if ($effectiveProduct !== null)
 											{
 												$effectiveProductName = $effectiveProduct->name;
-												$effectiveSubProductAmount = $recipeAmountStock;
-												if ($effectiveProduct->qu_id_stock != $product->qu_id_stock)
+												if ($recipeAmountStock !== null)
 												{
-													$effectiveConversions = FindAllObjectsInArrayByPropertyValue($quantityUnitConversionsResolved, 'product_id', $effectiveProduct->id);
-													$effectiveConversions = FindAllObjectsInArrayByPropertyValue($effectiveConversions, 'from_qu_id', $product->qu_id_stock);
-													$effectiveConversion = FindObjectInArrayByPropertyValue($effectiveConversions, 'to_qu_id', $effectiveProduct->qu_id_stock);
-													if ($effectiveConversion !== null)
+													$effectiveSubProductAmount = $recipeAmountStock;
+													if ($effectiveProduct->qu_id_stock != $product->qu_id_stock)
 													{
-														$effectiveSubProductAmount = $effectiveSubProductAmount * $effectiveConversion->factor;
+														$effectiveConversions = FindAllObjectsInArrayByPropertyValue($quantityUnitConversionsResolved, 'product_id', $effectiveProduct->id);
+														$effectiveConversions = FindAllObjectsInArrayByPropertyValue($effectiveConversions, 'from_qu_id', $product->qu_id_stock);
+														$effectiveConversion = FindObjectInArrayByPropertyValue($effectiveConversions, 'to_qu_id', $effectiveProduct->qu_id_stock);
+														if ($effectiveConversion !== null)
+														{
+															$effectiveSubProductAmount = $effectiveSubProductAmount * $effectiveConversion->factor;
+														}
+														else
+														{
+															$effectiveSubProductAmount = null;
+														}
 													}
-													else
-													{
-														$effectiveSubProductAmount = null;
-													}
-												}
-												if ($effectiveSubProductAmount !== null)
-												{
-													$effectiveQuantityUnit = FindObjectInArrayByPropertyValue($quantityUnits, 'id', $effectiveProduct->qu_id_stock);
-													if ($effectiveQuantityUnit !== null)
-													{
-														$effectiveQuantityUnitName = $effectiveQuantityUnit->name;
-														$effectiveQuantityUnitNamePlural = $effectiveQuantityUnit->name_plural;
-													}
-													else
-													{
-														$effectiveSubProductAmount = null;
-														$effectiveQuantityUnit = null;
+														if ($effectiveSubProductAmount !== null)
+														{
+															$effectiveQuantityUnit = FindObjectInArrayByPropertyValue($quantityUnits, 'id', $effectiveProduct->qu_id_stock);
+															if ($effectiveQuantityUnit !== null)
+															{
+															$effectiveQuantityUnitName = $effectiveQuantityUnit->name;
+															$effectiveQuantityUnitNamePlural = $effectiveQuantityUnit->name_plural;
+														}
+														else
+														{
+															$effectiveSubProductAmount = null;
+															$effectiveQuantityUnit = null;
+														}
 													}
 												}
 											}
 										}
 										$productName = $product !== null ? $product->name : '';
 										@endphp
-										<span class="productcard-trigger cursor-link @if($selectedRecipePosition->due_score == 20) text-danger @elseif($selectedRecipePosition->due_score == 10) text-secondary @elseif($selectedRecipePosition->due_score == 1) text-warning @endif"
-											data-product-id="{{ $selectedRecipePosition->product_id }}">
-											@if(!empty($selectedRecipePosition->recipe_variable_amount))
-											{{ $selectedRecipePosition->recipe_variable_amount }}
-											@else
-											<span class="locale-number locale-number-quantity-amount">@if($displayRecipeAmount == round($displayRecipeAmount, 2)){{ round($displayRecipeAmount, 2) }}@else{{ $displayRecipeAmount }}@endif</span>
-											{{ $__n($displayRecipeAmount, $displayQuantityUnitName, $displayQuantityUnitNamePlural) }}
-											@endif
-											{{ $productName }}
-										</span>
+											<span class="productcard-trigger cursor-link @if($selectedRecipePosition->due_score == 20) text-danger @elseif($selectedRecipePosition->due_score == 10) text-secondary @elseif($selectedRecipePosition->due_score == 1) text-warning @endif"
+												data-product-id="{{ $selectedRecipePosition->product_id }}">
+												@if(!empty($selectedRecipePosition->recipe_variable_amount))
+												{{ $selectedRecipePosition->recipe_variable_amount }}
+												@else
+												<span class="locale-number locale-number-quantity-amount">@if($displayRecipeAmount == round($displayRecipeAmount, 2)){{ round($displayRecipeAmount, 2) }}@else{{ $displayRecipeAmount }}@endif</span>
+												{{ $__n($displayAmountForPluralization, $displayQuantityUnitName, $displayQuantityUnitNamePlural) }}
+												@endif
+												{{ $productName }}
+											</span>
 										@if(GROCY_FEATURE_FLAG_STOCK)
 										<span class="
 												d-print-none">
@@ -583,19 +608,26 @@
 											<span class="timeago-contextual">@if(FindObjectInArrayByPropertyValue($recipePositionsResolved, 'recipe_pos_id', $selectedRecipePosition->id)->need_fulfilled == 1) {{ $__t('Enough in stock') }} (<span class="locale-number locale-number-quantity-amount">{{ $selectedRecipePosition->stock_amount }}</span> {{ $__n($selectedRecipePosition->stock_amount, FindObjectInArrayByPropertyValue($quantityUnits, 'id', $product->qu_id_stock)->name, FindObjectInArrayByPropertyValue($quantityUnits, 'id', $product->qu_id_stock)->name_plural) }}) @else {{ $__t('Not enough in stock, %1$s missing, %2$s already on shopping list', round($selectedRecipePosition->missing_amount, 2), round($selectedRecipePosition->amount_on_shopping_list, 2)) }} @endif</span>
 										</span>
 										@endif
-										@if($selectedRecipePosition->product_id != $selectedRecipePosition->product_id_effective && $effectiveProduct !== null)
-										<br class="d-print-none">
-										<span class="productcard-trigger cursor-link text-muted d-print-none"
-											data-product-id="{{ $selectedRecipePosition->product_id_effective }}"
-											data-toggle="tooltip"
+											@if($selectedRecipePosition->product_id != $selectedRecipePosition->product_id_effective && $effectiveProduct !== null)
+											<br class="d-print-none">
+											<span class="productcard-trigger cursor-link text-muted d-print-none"
+												data-product-id="{{ $selectedRecipePosition->product_id_effective }}"
+												data-toggle="tooltip"
 											data-trigger="hover click"
 											title="{{ $__t('The parent product %1$s is currently not in stock, %2$s is the current next sub product based on the default consume rule (Opened first, then first due first, then first in first out)', $productName, $effectiveProductName) }}">
-											<i class="fa-solid fa-exchange-alt"></i> {{ $effectiveProductName }}
-											@if($effectiveSubProductAmount !== null && $effectiveQuantityUnit !== null && $effectiveQuantityUnit->id != $selectedRecipePosition->qu_id)
-											(<span class="locale-number locale-number-quantity-amount">@if($effectiveSubProductAmount == round($effectiveSubProductAmount, 2)){{ round($effectiveSubProductAmount, 2) }}@else{{ $effectiveSubProductAmount }}@endif</span> {{ $__n($effectiveSubProductAmount, $effectiveQuantityUnitName, $effectiveQuantityUnitNamePlural) }})
+												<i class="fa-solid fa-exchange-alt"></i> {{ $effectiveProductName }}
+												@if($effectiveSubProductAmount !== null && $effectiveQuantityUnit !== null && $effectiveQuantityUnit->id != $selectedRecipePosition->qu_id)
+												@php
+												$effectiveAmountForPluralization = $effectiveSubProductAmount;
+												if (is_numeric($effectiveAmountForPluralization) && abs(abs($effectiveAmountForPluralization) - 1) < 0.00001)
+												{
+													$effectiveAmountForPluralization = $effectiveAmountForPluralization < 0 ? -1 : 1;
+												}
+												@endphp
+												(<span class="locale-number locale-number-quantity-amount">@if($effectiveSubProductAmount == round($effectiveSubProductAmount, 2)){{ round($effectiveSubProductAmount, 2) }}@else{{ $effectiveSubProductAmount }}@endif</span> {{ $__n($effectiveAmountForPluralization, $effectiveQuantityUnitName, $effectiveQuantityUnitNamePlural) }})
+												@endif
+											</span>
 											@endif
-										</span>
-										@endif
 										@if(GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING) <span class="float-right font-italic ml-2 locale-number locale-number-currency">{{ $selectedRecipePosition->costs }}</span> @endif
 										<span class="float-right font-italic"><span class="locale-number locale-number-generic">{{ $selectedRecipePosition->calories }}</span> {{ GROCY_ENERGY_UNIT }}{{ $__t('/serv.') }}</span>
 										@if(!empty($selectedRecipePosition->recipe_variable_amount))
