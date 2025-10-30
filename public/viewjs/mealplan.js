@@ -1,5 +1,153 @@
 ﻿var firstRender = true;
 Grocy.IsMealPlanEntryEditAction = false;
+var dayCaloriesPerServing = {};
+var dayCaloriesCurrentRangeKey = null;
+var dayCaloriesAccumulatedRangeKey = null;
+
+function getViewRangeKey(view)
+{
+	return view.start.format("YYYY-MM-DD") + "_" + view.end.format("YYYY-MM-DD");
+}
+
+function handleRangeChange(view)
+{
+	var newRangeKey = getViewRangeKey(view);
+	if (dayCaloriesCurrentRangeKey !== newRangeKey)
+	{
+		dayCaloriesCurrentRangeKey = newRangeKey;
+		dayCaloriesAccumulatedRangeKey = null;
+	}
+}
+
+function ensureDayCaloriesPrepared()
+{
+	if (dayCaloriesCurrentRangeKey !== null && dayCaloriesAccumulatedRangeKey !== dayCaloriesCurrentRangeKey)
+	{
+		dayCaloriesPerServing = {};
+		dayCaloriesAccumulatedRangeKey = dayCaloriesCurrentRangeKey;
+	}
+}
+
+function accumulateDayCalories(dayKey, calories)
+{
+	if (!dayKey || !Number.isFinite(calories))
+	{
+		return;
+	}
+
+	if (dayCaloriesPerServing[dayKey] === undefined)
+	{
+		dayCaloriesPerServing[dayKey] = 0;
+	}
+
+	dayCaloriesPerServing[dayKey] += calories;
+}
+
+function renderPrimaryDayHeaderActions()
+{
+	var headerSelector = ".calendar[data-primary-section='true'] .fc-day-header";
+	$(headerSelector + " .mealplan-day-actions").remove();
+	$(headerSelector).prepend('\
+	<div class="btn-group mr-2 my-1 d-print-none mealplan-day-actions"> \
+		<button type="button" class="btn btn-outline-dark btn-xs add-recipe-button" data-toggle="tooltip" title="' + __t('Add recipe') + '"><i class="fa-solid fa-plus"></i></a></button> \
+		<button type="button" class="btn btn-outline-dark btn-xs dropdown-toggle dropdown-toggle-split" data-toggle="dropdown"></button> \
+		<div class="table-inline-menu dropdown-menu"> \
+			<a class="dropdown-item add-note-button" href="#"><span class="dropdown-item-text">' + __t('Add note') + '</span></a> \
+			<a class="dropdown-item add-product-button" href="#"><span class="dropdown-item-text">' + __t('Add product') + '</span></a> \
+			<a class="dropdown-item copy-day-button" href="#"><span class="dropdown-item-text">' + __t('Copy this day') + '</span></a> \
+		</div> \
+	</div>');
+}
+
+function buildWeekToolbarHtml()
+{
+	if (weekRecipe === null)
+	{
+		return "";
+	}
+
+	var weekRecipeResolved = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", weekRecipe.id);
+	if (weekRecipeResolved == null)
+	{
+		return "";
+	}
+
+	var parts = [];
+	if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
+	{
+		var weekCosts = Number(weekRecipeResolved.costs);
+		if (!Number.isFinite(weekCosts))
+		{
+			weekCosts = 0;
+		}
+		parts.push(__t("Week costs") + ': <span class="locale-number locale-number-currency">' + weekCosts.toString() + "</span> ");
+	}
+
+	var orderButtonClasses = "";
+	if (weekRecipeResolved.need_fulfilled_with_shopping_list == 1)
+	{
+		orderButtonClasses = "disabled";
+	}
+
+	if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_SHOPPINGLIST)
+	{
+		parts.push('<a class="ml-2 btn btn-outline-primary btn-xs recipe-order-missing-button d-print-none ' + orderButtonClasses + '" href="#" data-toggle="tooltip" title="' + __t("Put missing products on shopping list") + '" data-recipe-id="' + weekRecipe.id.toString() + '" data-recipe-name="' + weekRecipe.name + '" data-recipe-type="' + weekRecipe.type + '"><i class="fa-solid fa-cart-plus"></i></a>');
+	}
+
+	parts.push('<a class="ml-2 btn btn-outline-success btn-xs recipe-consume-button d-print-none" href="#" data-toggle="tooltip" title="' + __t("Consume all ingredients needed by this weeks recipes or products") + '" data-recipe-id="' + weekRecipe.id.toString() + '" data-recipe-name="' + weekRecipe.name + '" data-recipe-type="' + weekRecipe.type + '"><i class="fa-solid fa-utensils"></i></a>');
+
+	return parts.join("");
+}
+
+function renderDaySummaries()
+{
+	var headerSelector = ".calendar[data-primary-section='true'] .fc-day-header";
+	$(headerSelector + " [id^='day-summary-']").remove();
+
+	$(headerSelector).each(function()
+	{
+		var dayRecipeName = $(this).attr("data-date");
+		if (!dayRecipeName)
+		{
+			return;
+		}
+
+		var dayRecipe = FindObjectInArrayByPropertyValue(internalRecipes, "name", dayRecipeName);
+		if (dayRecipe == null)
+		{
+			return;
+		}
+
+		var dayRecipeResolved = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", dayRecipe.id);
+		if (dayRecipeResolved == null)
+		{
+			return;
+		}
+
+		var summarySegments = [];
+		if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
+		{
+			var dayCosts = Number(dayRecipeResolved.costs);
+			if (!Number.isFinite(dayCosts))
+			{
+				dayCosts = 0;
+			}
+
+			summarySegments.push('<span class="locale-number locale-number-currency">' + dayCosts + '</span> ' + __t('per day'));
+		}
+
+		var perServingCaloriesTotal = Number(dayCaloriesPerServing[dayRecipeName]);
+		if (!Number.isFinite(perServingCaloriesTotal))
+		{
+			perServingCaloriesTotal = 0;
+		}
+
+		var caloriesLabel = __t('per day') + ' (' + __t('per serving') + ')';
+		summarySegments.push('<span class="locale-number locale-number-generic">' + perServingCaloriesTotal + '</span> ' + Grocy.EnergyUnit + ' ' + caloriesLabel);
+
+		$(this).append('<h5 id="day-summary-' + dayRecipeName + '" class="small text-truncate border-top pt-1 pb-0">' + summarySegments.join(' / ') + '</h5>');
+	});
+}
 
 var firstDay = null;
 if (Grocy.CalendarFirstDayOfWeek)
@@ -62,51 +210,18 @@ $(".calendar").each(function()
 		"defaultDate": GetUriParam("start"),
 		"viewRender": function(view)
 		{
+			if (isPrimarySection)
+			{
+				handleRangeChange(view);
+			}
+
 			if (!isPrimarySection)
 			{
 				return;
 			}
 
-			$(".calendar[data-primary-section='true'] .fc-day-header").prepend('\
-			<div class="btn-group mr-2 my-1 d-print-none"> \
-				<button type="button" class="btn btn-outline-dark btn-xs add-recipe-button" data-toggle="tooltip" title="' + __t('Add recipe') + '"><i class="fa-solid fa-plus"></i></a></button> \
-				<button type="button" class="btn btn-outline-dark btn-xs dropdown-toggle dropdown-toggle-split" data-toggle="dropdown"></button> \
-				<div class="table-inline-menu dropdown-menu"> \
-					<a class="dropdown-item add-note-button" href="#"><span class="dropdown-item-text">' + __t('Add note') + '</span></a> \
-					<a class="dropdown-item add-product-button" href="#"><span class="dropdown-item-text">' + __t('Add product') + '</span></a> \
-					<a class="dropdown-item copy-day-button" href="#"><span class="dropdown-item-text">' + __t('Copy this day') + '</span></a> \
-				</div> \
-			</div>');
-
-			var weekCosts = 0;
-			var weekRecipeOrderMissingButtonHtml = "";
-			var weekRecipeConsumeButtonHtml = "";
-			var weekCostsHtml = "";
-			if (weekRecipe !== null)
-			{
-				var weekRecipeResolved = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", weekRecipe.id);
-
-				if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
-				{
-					weekCosts = weekRecipeResolved.costs;
-					weekCostsHtml = __t("Week costs") + ': <span class="locale-number locale-number-currency">' + weekCosts.toString() + "</span> ";
-				}
-
-				var weekRecipeOrderMissingButtonDisabledClasses = "";
-				if (weekRecipeResolved.need_fulfilled_with_shopping_list == 1)
-				{
-					weekRecipeOrderMissingButtonDisabledClasses = "disabled";
-				}
-
-				var weekRecipeOrderMissingButtonHtml = "";
-				if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_SHOPPINGLIST)
-				{
-					weekRecipeOrderMissingButtonHtml = '<a class="ml-2 btn btn-outline-primary btn-xs recipe-order-missing-button d-print-none ' + weekRecipeOrderMissingButtonDisabledClasses + '" href="#" data-toggle="tooltip" title="' + __t("Put missing products on shopping list") + '" data-recipe-id="' + weekRecipe.id.toString() + '" data-recipe-name="' + weekRecipe.name + '" data-recipe-type="' + weekRecipe.type + '"><i class="fa-solid fa-cart-plus"></i></a>';
-				}
-
-				weekRecipeConsumeButtonHtml = '<a class="ml-2 btn btn-outline-success btn-xs recipe-consume-button d-print-none" href="#" data-toggle="tooltip" title="' + __t("Consume all ingredients needed by this weeks recipes or products") + '" data-recipe-id="' + weekRecipe.id.toString() + '" data-recipe-name="' + weekRecipe.name + '" data-recipe-type="' + weekRecipe.type + '"><i class="fa-solid fa-utensils"></i></a>'
-			}
-			$(".calendar[data-primary-section='true'] .fc-header-toolbar .fc-center").html("<h4>" + weekCostsHtml + weekRecipeOrderMissingButtonHtml + weekRecipeConsumeButtonHtml + "</h4>");
+			renderPrimaryDayHeaderActions();
+			$(".calendar[data-primary-section='true'] .fc-header-toolbar .fc-center").html("<h4>" + buildWeekToolbarHtml() + "</h4>");
 		},
 		"eventRender": function(event, element)
 		{
@@ -116,6 +231,47 @@ $(".calendar").each(function()
 			element.addClass("discrete-link");
 
 			var mealPlanEntry = JSON.parse(event.mealPlanEntry);
+			if (isPrimarySection)
+			{
+				ensureDayCaloriesPrepared();
+			}
+			var internalShadowRecipe = null;
+			var resolvedRecipe = null;
+			var caloriesPerServing = 0;
+
+			if (event.type == "recipe")
+			{
+				internalShadowRecipe = FindObjectInArrayByPropertyValue(internalRecipes, "name", mealPlanEntry.day + "#" + mealPlanEntry.id);
+				if (internalShadowRecipe != null)
+				{
+					resolvedRecipe = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", internalShadowRecipe.id);
+				}
+
+				if (resolvedRecipe != null)
+				{
+					var resolvedRecipeCalories = Number(resolvedRecipe.calories);
+					if (!Number.isFinite(resolvedRecipeCalories))
+					{
+						resolvedRecipeCalories = 0;
+					}
+
+					var recipeServings = Number(mealPlanEntry.recipe_servings);
+					if (!Number.isFinite(recipeServings) || recipeServings <= 0)
+					{
+						recipeServings = 0;
+					}
+
+					if (recipeServings > 0)
+					{
+						caloriesPerServing = resolvedRecipeCalories / recipeServings;
+					}
+
+					if (isPrimarySection)
+					{
+						accumulateDayCalories(event.start.format("YYYY-MM-DD"), caloriesPerServing);
+					}
+				}
+			}
 
 			if (sectionId != mealPlanEntry.section_id)
 			{
@@ -140,8 +296,10 @@ $(".calendar").each(function()
 
 				recipe.name = recipe.name.escapeHTML();
 
-				var internalShadowRecipe = FindObjectInArrayByPropertyValue(internalRecipes, "name", mealPlanEntry.day + "#" + mealPlanEntry.id);
-				var resolvedRecipe = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", internalShadowRecipe.id);
+				if (internalShadowRecipe == null || resolvedRecipe == null)
+				{
+					return false;
+				}
 
 				element.attr("data-recipe", event.recipe);
 
@@ -158,14 +316,14 @@ $(".calendar").each(function()
 					fulfillmentInfoHtml = __t('Not enough in stock');
 					var fulfillmentIconHtml = '<i class="fa-solid fa-times text-danger"></i>';
 				}
-				var costsAndCaloriesPerServing = ""
+				var costsAndCaloriesPerServing = "";
 				if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
 				{
-					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-currency">' + resolvedRecipe.costs + '</span> ' + __t('total') + ' <span class="locale-number locale-number-generic">' + resolvedRecipe.calories / mealPlanEntry.recipe_servings + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
+					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-currency">' + resolvedRecipe.costs + '</span> ' + __t('total') + ' <span class="locale-number locale-number-generic">' + caloriesPerServing + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
 				}
 				else
 				{
-					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-generic">' + resolvedRecipe.calories / mealPlanEntry.recipe_servings + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
+					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-generic">' + caloriesPerServing + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
 				}
 
 				if (!Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK)
@@ -284,27 +442,6 @@ $(".calendar").each(function()
 				</div>');
 			}
 
-			var dayRecipeName = event.start.format("YYYY-MM-DD");
-			if (!$("#day-summary-" + dayRecipeName).length) // This runs for every event/recipe, so maybe multiple times per day, so only add the day summary once
-			{
-				var dayRecipe = FindObjectInArrayByPropertyValue(internalRecipes, "name", dayRecipeName);
-				if (dayRecipe != null)
-				{
-					var dayRecipeResolved = FindObjectInArrayByPropertyValue(recipesResolved, "recipe_id", dayRecipe.id);
-
-					var costsAndCaloriesPerDay = ""
-					if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
-					{
-						costsAndCaloriesPerDay = '<h5 class="small text-truncate"><span class="locale-number locale-number-currency">' + dayRecipeResolved.costs + '</span> / <span class="locale-number locale-number-generic">' + dayRecipeResolved.calories + '</span> ' + Grocy.EnergyUnit + ' ' + __t('per day') + '</h5>';
-					}
-					else
-					{
-						costsAndCaloriesPerDay = '<h5 class="small text-truncate"><span class="locale-number locale-number-generic">' + dayRecipeResolved.calories + '</span> ' + Grocy.EnergyUnit + ' ' + __t('per day') + '</h5>';
-					}
-
-					$(".calendar[data-primary-section='true'] .fc-day-header[data-date='" + dayRecipeName + "']").append('<h5 id="day-summary-' + dayRecipeName + '" class="small text-truncate border-top pt-1 pb-0">' + costsAndCaloriesPerDay + '</h5>');
-				}
-			}
 		},
 		"eventAfterAllRender": function(view)
 		{
@@ -335,6 +472,8 @@ $(".calendar").each(function()
 
 			if (isLastSection)
 			{
+				renderDaySummaries();
+
 				$(".fc-axis span").replaceWith(function()
 				{
 					return $("<div />", { html: $(this).html() });
