@@ -444,6 +444,8 @@ class StockService extends BaseService
 
 			foreach ($potentialStockEntries as $stockEntry)
 			{
+				$conversion = null;
+
 				if ($amount == 0)
 				{
 					break;
@@ -460,10 +462,12 @@ class StockService extends BaseService
 					// A sub product will be used -> use QU conversions
 					$subProduct = $this->getDatabase()->products($stockEntry->product_id);
 					$conversion = $this->getDatabase()->cache__quantity_unit_conversions_resolved()->where('product_id = :1 AND from_qu_id = :2 AND to_qu_id = :3', $stockEntry->product_id, $productDetails->product->qu_id_stock, $subProduct->qu_id_stock)->fetch();
-					if ($conversion != null)
+					if ($conversion == null)
 					{
-						$amount = $amount * $conversion->factor;
+						continue; // No valid conversion found - skip this stock entry
 					}
+
+					$amount = $amount * $conversion->factor;
 				}
 
 				if ($amount >= $stockEntry->amount)
