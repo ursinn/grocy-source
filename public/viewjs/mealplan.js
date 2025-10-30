@@ -133,7 +133,7 @@ function renderDaySummaries()
 				dayCosts = 0;
 			}
 
-			summarySegments.push('<span class="locale-number locale-number-currency">' + dayCosts + '</span> ' + __t('per day'));
+			summarySegments.push('<span class="locale-number locale-number-currency">' + dayCosts + '</span> ' + __t('total'));
 		}
 
 		var perServingCaloriesTotal = Number(dayCaloriesPerServing[dayRecipeName]);
@@ -142,10 +142,10 @@ function renderDaySummaries()
 			perServingCaloriesTotal = 0;
 		}
 
-		var caloriesLabel = __t('per day') + ' (' + __t('per serving') + ')';
+		var caloriesLabel = __t('day') + __t('/serv.');
 		summarySegments.push('<span class="locale-number locale-number-generic">' + perServingCaloriesTotal + '</span> ' + Grocy.EnergyUnit + ' ' + caloriesLabel);
 
-		$(this).append('<h5 id="day-summary-' + dayRecipeName + '" class="small text-truncate border-top pt-1 pb-0">' + summarySegments.join(' / ') + '</h5>');
+		$(this).append('<h5 id="day-summary-' + dayRecipeName + '" class="small text-truncate border-top pt-1 pb-0">' + summarySegments.join(' ') + '</h5>');
 	});
 }
 
@@ -319,7 +319,7 @@ $(".calendar").each(function()
 				var costsAndCaloriesPerServing = "";
 				if (Grocy.FeatureFlags.GROCY_FEATURE_FLAG_STOCK_PRICE_TRACKING)
 				{
-					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-currency">' + resolvedRecipe.costs + '</span> ' + __t('total') + ' <span class="locale-number locale-number-generic">' + caloriesPerServing + '</span> ' + Grocy.EnergyUnit + ' ' + __t('/serv.') + '</h5>';
+					costsAndCaloriesPerServing = '<h5 class="small text-truncate mb-1"><span class="locale-number locale-number-currency">' + resolvedRecipe.costs + '</span> ' + __t('total') + ' <span class="locale-number locale-number-generic">' + caloriesPerServing + '</span> ' + Grocy.EnergyUnit  + __t('/serv.') + '</h5>';
 				}
 				else
 				{
