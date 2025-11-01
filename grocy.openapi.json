@@ -1696,7 +1696,9 @@
 						"application/json": {
 							"schema": {
 								"type": "object",
-								"required": ["location_id_to"],
+								"required": [
+									"location_id_to"
+								],
 								"properties": {
 									"amount": {
 										"type": "number",
@@ -1765,7 +1767,9 @@
 						"application/json": {
 							"schema": {
 								"type": "object",
-								"required": ["new_amount"],
+								"required": [
+									"new_amount"
+								],
 								"properties": {
 									"new_amount": {
 										"type": "number",
@@ -4691,6 +4695,108 @@
 					}
 				}
 			}
+		},
+		"/stock/entry/{entryId}/open": {
+			"post": {
+				"tags": [
+					"Stock"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
+		},
+		"/live-activity": {
+			"get": {
+				"tags": [
+					"Live Activity"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
+		},
+		"/pending-scans": {
+			"get": {
+				"tags": [
+					"Pending Scans"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
+		},
+		"/pending-scans/count": {
+			"get": {
+				"tags": [
+					"Pending Scans"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
+		},
+		"/pending-scans/{id}": {
+			"get": {
+				"tags": [
+					"Pending Scans"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			},
+			"delete": {
+				"tags": [
+					"Pending Scans"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
+		},
+		"/pending-scans/{id}/resolve": {
+			"post": {
+				"tags": [
+					"Pending Scans"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
+		},
+		"/pending-scans/by-barcode/{barcode}": {
+			"get": {
+				"tags": [
+					"Pending Scans"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
 		}
 	},
 	"components": {
@@ -6340,7 +6446,7 @@
 				"in": "query",
 				"name": "query[]",
 				"required": false,
-				"description": "An array of filter conditions, each of them is a string in the form of `<field><condition><value>` where<br>`<field>` is a valid field name<br>`<condition>` is a comparison operator, one of<br>&nbsp;&nbsp;`=` equal<br>&nbsp;&nbsp;`!=` not equal<br>&nbsp;&nbsp;`~` LIKE<br>&nbsp;&nbsp;`!~` not LIKE<br>&nbsp;&nbsp;`<` less<br>&nbsp;&nbsp;`>` greater<br>&nbsp;&nbsp;`<=` less or equal<br>&nbsp;&nbsp;`>=` greater or equal<br>&nbsp;&nbsp;`§` regular expression<br>`<value>` is the value to search for",
+				"description": "An array of filter conditions, each of them is a string in the form of `<field><condition><value>` where<br>`<field>` is a valid field name<br>`<condition>` is a comparison operator, one of<br>&nbsp;&nbsp;`=` equal<br>&nbsp;&nbsp;`!=` not equal<br>&nbsp;&nbsp;`~` LIKE<br>&nbsp;&nbsp;`!~` not LIKE<br>&nbsp;&nbsp;`<` less<br>&nbsp;&nbsp;`>` greater<br>&nbsp;&nbsp;`<=` less or equal<br>&nbsp;&nbsp;`>=` greater or equal<br>&nbsp;&nbsp;`\u00a7` regular expression<br>`<value>` is the value to search for",
 				"schema": {
 					"type": "array",
 					"items": {
