@@ -105,29 +105,29 @@
 											<span class="text-uppercase font-weight-bold mr-1">{{ $__t('Brand') }}</span>
 											<span data-lookup-field="brands"></span>
 										</div>
-										<div class="mt-3">
-											<div class="d-flex flex-column align-items-start">
-												<a class="btn btn-outline-secondary btn-sm mb-2 align-self-start"
-													href="https://www.barcodelookup.com/{{ $encodedBarcode }}"
-													target="_blank"
-													rel="noopener">
-													<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Open Barcode Lookup') }}
-												</a>
-												<a class="btn btn-outline-secondary btn-sm mb-2 align-self-start"
-													href="https://www.google.com/search?q={{ $encodedBarcode }}"
-													target="_blank"
-													rel="noopener">
-													<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Open Google search') }}
-												</a>
-												<a class="btn btn-outline-secondary btn-sm mb-2 align-self-start"
-													href="https://world.openfoodfacts.org/product/{{ $encodedBarcode }}"
-													target="_blank"
-													rel="noopener">
-													<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Open Open Food Facts') }}
-												</a>
-											</div>
-										</div>
 									</div>
+								</div>
+							</div>
+							<div class="mt-3">
+								<div class="d-flex flex-column align-items-start">
+									<a class="btn btn-outline-secondary btn-sm mb-2 align-self-start"
+										href="https://www.barcodelookup.com/{{ $encodedBarcode }}"
+										target="_blank"
+										rel="noopener">
+										<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Open Barcode Lookup') }}
+									</a>
+									<a class="btn btn-outline-secondary btn-sm mb-2 align-self-start"
+										href="https://www.google.com/search?q={{ $encodedBarcode }}"
+										target="_blank"
+										rel="noopener">
+										<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Open Google search') }}
+									</a>
+									<a class="btn btn-outline-secondary btn-sm mb-2 align-self-start"
+										href="https://world.openfoodfacts.org/product/{{ $encodedBarcode }}"
+										target="_blank"
+										rel="noopener">
+										<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Open Open Food Facts') }}
+									</a>
 								</div>
 							</div>
 						</div>
