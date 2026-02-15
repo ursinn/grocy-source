@@ -2695,3 +2695,9 @@ msgstr ""
 
 msgid "HiperuseraId"
 msgstr ""
+
+msgid "Filete"
+msgstr ""
+
+msgid "Lata"
+msgstr ""

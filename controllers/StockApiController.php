@@ -861,7 +861,13 @@ class StockApiController extends BaseApiController
 	public function StockEntryPrintLabel(Request $request, Response $response, array $args)
 	{
 		try {
-			$stockEntry = $this->getDatabase()->stock()->where('id', $args['entryId'])->fetch();
+			$stockEntry = $this->getStockService()->GetStockEntry($args['entryId']);
+
+			if ($stockEntry == null)
+			{
+				throw new \Exception('Stock entry not found');
+			}
+
 			$productDetails = (object) $this->getStockService()->GetProductDetails($stockEntry->product_id);
 			$stockEntryUserfields = $this->getUserfieldsService()->GetValues('stock', $stockEntry->stock_id);
 
