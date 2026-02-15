@@ -83,8 +83,22 @@
 				</select>
 			</div>
 
-			<button id="save-transfer-button"
-				class="btn btn-success">{{ $__t('OK') }}</button>
+		@if(GROCY_FEATURE_FLAG_LABEL_PRINTER)
+		<div class="form-group">
+			<div class="custom-control custom-checkbox">
+				<input class="form-check-input custom-control-input"
+					type="checkbox"
+					id="stock_label_type"
+					name="stock_label_type"
+					value="2">
+				<label class="form-check-label custom-control-label"
+					for="stock_label_type">{{ $__t('Print stock entry label') }}</label>
+			</div>
+		</div>
+		@endif
+
+		<button id="save-transfer-button"
+			class="btn btn-success">{{ $__t('OK') }}</button>
 
 		</form>
 	</div>
