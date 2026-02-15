@@ -313,6 +313,9 @@ function processBarcode(barcode)
 	var barcodeData = parseGrocycode(barcode);
 	if (!barcodeData) return;
 
+	// Reset form but keep the barcode we just scanned
+	clearForm(true);
+
 	// Get stock entry details
 	loadStockEntryDetails(barcodeData.productId, barcodeData.stockId);
 }
@@ -776,12 +779,13 @@ function updateWeightsDirectly(grossWeight)
 	$('#net_weight').val(formatAmount(netWeight));
 }
 
-function clearForm()
+function clearForm(keepBarcode = false)
 {
+	currentBarcode = $('#container_scanner').val();
+
 	$('#container-inventory-form').trigger('reset');
 
-	// Clear all input fields
-	$('#container_scanner, #gross_weight, #net_weight, #source_stock_entry, #destination_stock_entry').val('');
+	$('#gross_weight, #net_weight, #source_stock_entry, #destination_stock_entry').val('');
 
 	// Reset radio buttons to default
 	$('#destination_consume').prop('checked', true);
@@ -797,11 +801,17 @@ function clearForm()
 	// Clear validation
 	Grocy.FrontendHelpers.ValidateForm('container-inventory-form');
 
-	// Focus barcode input
-	setTimeout(function()
+	if (keepBarcode)
 	{
-		$('#container_scanner').focus();
-	}, Grocy.FormFocusDelay);
+		$('#container_scanner').val(currentBarcode);
+	} else {
+		$('#container_scanner').val('');
+		// Focus barcode input
+		setTimeout(function()
+		{
+			$('#container_scanner').focus();
+		}, Grocy.FormFocusDelay);
+	}
 }
 
 function showError(message)
