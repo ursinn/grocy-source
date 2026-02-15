@@ -14,6 +14,10 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 		this.scannerData = {
 			targetInput: null
 		};
+
+		// Debounce/Deduplication state
+		this.updateDebounceTimer = null;
+		this.pendingEntityUpdate = null;
 	}
 
 	static getMetadata() {
@@ -325,7 +329,7 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 					return;
 				}
 
-				HAHelperLogger.debug('ScannerModule', `Processing scanner entity update: ${scannerEntity.state}`);
+				HAHelperLogger.debug('ScannerModule', `Processing scanner entity update: ${JSON.stringify(scannerEntity)}`);
 				this.handleScannerEntityUpdate(scannerEntity);
 			} else {
 				HAHelperLogger.debug('ScannerModule', `No entity found for ${scannerEntityId} in callback`);
@@ -336,6 +340,12 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 	}
 
 	unsubscribeFromEntity() {
+		if (this.updateDebounceTimer) {
+			clearTimeout(this.updateDebounceTimer);
+			this.updateDebounceTimer = null;
+			this.pendingEntityUpdate = null;
+		}
+
 		if (this.entityUnsubscribe) {
 			this.entityUnsubscribe();
 			this.entityUnsubscribe = null;
@@ -344,6 +354,44 @@ export class HAHelperScannerModule extends HAHelperBaseModule {
 	}
 
 	handleScannerEntityUpdate(entity) {
+		// Buffer updates to handle duplicate events from Home Assistant.
+		// When an entity update involves both state and attribute changes, HA often emits two events:
+		// 1. Attribute change (with OLD state)
+		// 2. State change (with NEW state)
+		// Both events share the same Context ID. We debounce to capture the second, correct event.
+		const debounceTime = 50;
+
+		if (this.updateDebounceTimer) {
+			const pending = this.pendingEntityUpdate;
+			// If incoming update shares the same context as pending, it's the second part of the update pair (e.g. state change following attribute change).
+			// Supersede the pending update with this new one.
+			const isSameContext = pending?.context?.id && entity?.context?.id && pending.context.id === entity.context.id;
+
+			if (isSameContext) {
+				HAHelperLogger.debug('ScannerModule', `Superseding pending update (Context: ${pending.context.id})`);
+				this.pendingEntityUpdate = entity;
+				return;
+			}
+
+			// Different context - process pending immediately and schedule new one
+			HAHelperLogger.debug('ScannerModule', 'Flushing pending update due to new context');
+			clearTimeout(this.updateDebounceTimer);
+			this._processEntityUpdateImmediately(pending);
+		}
+
+		this.pendingEntityUpdate = entity;
+		this.updateDebounceTimer = setTimeout(() => {
+			this.updateDebounceTimer = null;
+			const entityToProcess = this.pendingEntityUpdate;
+			this.pendingEntityUpdate = null;
+
+			if (entityToProcess) {
+				this._processEntityUpdateImmediately(entityToProcess);
+			}
+		}, debounceTime);
+	}
+
+	_processEntityUpdateImmediately(entity) {
 		const barcode = entity.state;
 
 		if (!barcode || barcode === 'unknown' || barcode === 'unavailable') {
