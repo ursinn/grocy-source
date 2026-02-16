@@ -434,6 +434,15 @@ class HAHelperUnitService {
 			}
 		}
 
+		// Check for the main amount unit label in the same form (common in stock entry)
+		const $amountQuUnit = $input.closest('form').find('#amount_qu_unit');
+		if ($amountQuUnit.length > 0) {
+			const unit = $amountQuUnit.text().trim().toLowerCase();
+			if (unit) {
+				return { unit, isFallback: false };
+			}
+		}
+
 		const $quSelector = $('#qu_id');
 		if ($quSelector.length > 0) {
 			const $selectedOption = $quSelector.find('option:selected');
