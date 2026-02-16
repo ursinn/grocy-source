@@ -448,6 +448,37 @@ function displayStockEntryDetails()
 	$('#gross_weight_unit').text(CurrentStockEntry.product_details.quantity_unit_stock.name);
 	$('#net_weight_unit').text(CurrentStockEntry.product_details.quantity_unit_stock.name);
 
+	// Update action buttons
+	var editButton = $('.stock-edit-button');
+	editButton.attr('href', U('/stockentry/' + stockEntry.id + '?embedded'));
+
+	var consumeButton = $('.container-consume-button');
+	consumeButton.attr('data-product-id', product.id);
+	consumeButton.attr('data-stock-id', stockEntry.stock_id);
+	consumeButton.attr('data-stockrow-id', stockEntry.id);
+	consumeButton.attr('data-location-id', stockEntry.location_id);
+	consumeButton.attr('data-product-name', product.name);
+	consumeButton.attr('data-product-qu-name', CurrentStockEntry.product_details.quantity_unit_stock.name);
+	consumeButton.attr('data-consume-amount', stockEntry.amount);
+
+	var contextButton = $('.container-context-menu-button');
+	contextButton.attr('data-stock-entry-id', stockEntry.id);
+	contextButton.attr('data-product-id', product.id);
+	contextButton.attr('data-product-name', product.name);
+	contextButton.attr('data-product-qu-name', CurrentStockEntry.product_details.quantity_unit_stock.name);
+	contextButton.attr('data-stock-id', stockEntry.stock_id);
+	contextButton.attr('data-stockrow-id', stockEntry.id);
+	contextButton.attr('data-location-id', stockEntry.location_id);
+	contextButton.attr('data-amount', stockEntry.amount);
+	contextButton.attr('data-spoiled-text', __t('Consume this stock entry as spoiled', '1 ' + CurrentStockEntry.product_details.quantity_unit_stock.name, product.name));
+	contextButton.attr('data-grocycode-url', U('/stockentry/' + stockEntry.id + '/grocycode?download=true'));
+	contextButton.attr('data-label-url', U('/stockentry/' + stockEntry.id + '/label'));
+	contextButton.attr('data-consume-url', U('/consume?embedded&product=' + product.id + '&locationId=' + stockEntry.location_id + '&stockId=' + stockEntry.stock_id));
+	contextButton.attr('data-transfer-url', U('/transfer?embedded&product=' + product.id + '&locationId=' + stockEntry.location_id + '&stockId=' + stockEntry.stock_id));
+
+	// Show buttons
+	$('#container-actions').removeClass('d-none');
+
 	// Update product card with current product
 	Grocy.Components.ProductCard.Refresh(product.id);
 
@@ -792,7 +823,7 @@ function clearForm(keepBarcode = false)
 	$('input[name="partial_transfer_mode"]').prop('checked', false);
 
 	// Hide sections
-	$('#container-details, #stock-source-group, #stock-destination-group, #destination-stock-entry, #partial-transfer-info, #stock-modification-option').addClass('d-none');
+	$('#container-details, #stock-source-group, #stock-destination-group, #destination-stock-entry, #partial-transfer-info, #stock-modification-option, #container-actions').addClass('d-none');
 	$('#inventory-scenario').remove();
 
 	// Reset state
@@ -960,4 +991,196 @@ $(document).on("Grocy.BarcodeScanned", function(_, barcode, target)
 
 	$('#container_scanner').val(barcode);
 	processBarcode(barcode);
+});
+
+$(document).on("click", ".container-context-menu-button", function(e)
+{
+	e.preventDefault();
+
+	var button = $(e.currentTarget);
+	var modal = $("#stockentry-context-menu");
+
+	// Update Data
+	var stockEntryId = button.attr("data-stock-entry-id");
+	var productId = button.attr("data-product-id");
+	var productName = button.attr("data-product-name");
+	var productQuName = button.attr("data-product-qu-name");
+	var stockId = button.attr("data-stock-id");
+	var stockRowId = button.attr("data-stockrow-id");
+	var locationId = button.attr("data-location-id");
+	var amount = button.attr("data-amount");
+	var spoiledText = button.attr("data-spoiled-text");
+	var grocycodeUrl = button.attr("data-grocycode-url");
+	var labelUrl = button.attr("data-label-url");
+	var consumeUrl = button.attr("data-consume-url");
+	var transferUrl = button.attr("data-transfer-url");
+
+	modal.find(".product-name").text(productName);
+	modal.find(".spoiled-text").text(spoiledText);
+
+	// Update Links
+	modal.find("a[data-href-template]").each(function()
+	{
+		var link = $(this);
+		var template = link.data("href-template");
+
+		if (template.includes("recipes?search="))
+		{
+			link.attr("href", template + encodeURIComponent(productName));
+		}
+		else if (template.includes("summary?embedded&product="))
+		{
+			link.attr("href", template + productId);
+		}
+		else if (template.includes("shoppinglistitem/new"))
+		{
+			link.attr("href", template + productId);
+		}
+		else if (template.includes("purchase?embedded"))
+		{
+			link.attr("href", template + productId);
+		}
+		else if (template.includes("inventory?embedded"))
+		{
+			link.attr("href", template + productId);
+		}
+		else if (template.includes("stockjournal?embedded"))
+		{
+			link.attr("href", template + productId);
+		}
+		else if (template.includes("product/"))
+		{
+			link.attr("href", template + productId);
+		}
+
+		if (link.hasClass("link-return"))
+		{
+			link.data("href", template + productId);
+		}
+	});
+
+	// Specific Link Updates
+	modal.find(".stock-consume-link").attr("href", consumeUrl);
+	modal.find(".stock-transfer-link").attr("href", transferUrl);
+	modal.find(".stock-grocycode-link").attr("href", grocycodeUrl);
+	modal.find(".stockentry-label-link").attr("href", labelUrl);
+
+	// Buttons needing data attributes
+	var spoiledButton = modal.find(".stock-consume-button-spoiled");
+	spoiledButton.attr("data-product-id", productId);
+	spoiledButton.attr("data-product-name", productName);
+	spoiledButton.attr("data-product-qu-name", productQuName);
+	spoiledButton.attr("data-stock-id", stockId);
+	spoiledButton.attr("data-stockrow-id", stockRowId);
+	spoiledButton.attr("data-location-id", locationId);
+	spoiledButton.attr("data-consume-amount", amount);
+
+	modal.find(".productcard-trigger").attr("data-product-id", productId);
+
+	modal.modal("show");
+});
+
+$("#productcard-modal").on("hidden.bs.modal", function(e)
+{
+	if ($("#stockentry-context-menu").hasClass("show"))
+	{
+		$("body").addClass("modal-open");
+	}
+});
+
+$(document).on('click', '.container-consume-button', function(e)
+{
+	e.preventDefault();
+
+
+	var productId = $(e.currentTarget).attr('data-product-id');
+	var stockId = $(e.currentTarget).attr('data-stock-id');
+	var stockRowId = $(e.currentTarget).attr('data-stockrow-id');
+	var locationId = $(e.currentTarget).attr('data-location-id');
+	var productName = $(e.currentTarget).attr('data-product-name');
+	var productQuName = $(e.currentTarget).attr('data-product-qu-name');
+	var consumeAmount = $(e.currentTarget).attr('data-consume-amount');
+	var wasSpoiled = $(e.currentTarget).hasClass("container-consume-button-spoiled");
+
+	if (wasSpoiled)
+	{
+		consumeAmount = 1;
+	}
+
+	bootbox.dialog({
+		message: __t('Are you sure to consume %1$s %2$s of %3$s?', consumeAmount, productQuName, productName),
+		title: __t('Consume'),
+		buttons: {
+
+			danger: {
+				label: __t('Yes'),
+				className: "btn-danger",
+				callback: function()
+				{
+					Grocy.FrontendHelpers.BeginUiBusy();
+
+					Grocy.Api.Post('stock/products/' + productId + '/consume', { 'amount': consumeAmount, 'stock_entry_id': stockId, 'spoiled': wasSpoiled, 'exact_amount': true },
+						function(result)
+						{
+							ReloadContainerDetails();
+							Grocy.FrontendHelpers.EndUiBusy();
+							toastr.success(__t('Removed %1$s %2$s of %3$s from stock', consumeAmount, productQuName, productName) + '<br><a class="btn btn-secondary btn-sm mt-2" href="#" onclick="UndoStockBookingEntry(' + result[0].id + ', ' + stockRowId + ', ' + productId + ')"><i class="fa-solid fa-undo"></i> ' + __t("Undo") + '</a>');
+							$("#stockentry-context-menu").modal("hide");
+						},
+						function(xhr)
+						{
+							Grocy.FrontendHelpers.EndUiBusy();
+							console.error(xhr);
+						}
+					);
+				}
+			},
+			cancel: {
+				label: __t('No'),
+				className: "btn-secondary",
+				callback: function()
+				{
+					bootbox.hideAll();
+				}
+			}
+		}
+	});
+});
+
+function ReloadContainerDetails()
+{
+	if (CurrentStockEntry && CurrentStockEntry.stock_entry)
+	{
+		loadStockEntryDetails(CurrentStockEntry.product.id, CurrentStockEntry.stock_entry.stock_id);
+	}
+}
+
+function UndoStockBookingEntry(bookingId, stockRowId, productId)
+{
+	Grocy.Api.Post('stock/bookings/' + bookingId.toString() + '/undo', {},
+		function(result)
+		{
+			ReloadContainerDetails();
+			toastr.success(__t("Booking successfully undone"));
+		},
+	function(xhr)
+		{
+			console.error(xhr);
+		}
+	);
+};
+
+$(window).on("message", function(e)
+{
+	var data = e.originalEvent.data;
+
+	if (data.Message === "BroadcastMessage" && data.Payload.Message === "ProductChanged")
+	{
+		var changedProductId = data.Payload.Payload;
+
+		if (CurrentStockEntry && CurrentStockEntry.product.id == changedProductId)
+		{
+			ReloadContainerDetails();
+		}
+	}
 });

@@ -145,8 +145,4 @@ Grocy.Components.DateTimePicker.GetInputElement().on('change', function(e)
 });
 
 Grocy.Components.UserfieldsForm.Load();
-setTimeout(function()
-{
-	$('#amount').focus();
-}, Grocy.FormFocusDelay);
 Grocy.FrontendHelpers.ValidateForm("stockentry-form");
