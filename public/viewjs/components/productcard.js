@@ -307,6 +307,8 @@ $("#productcard-product-description").on("hidden.bs.collapse", function()
 
 $(document).on("click", ".productcard-trigger", function(e)
 {
+	e.preventDefault();
+
 	var productId = $(e.currentTarget).attr("data-product-id");
 	if (productId != "")
 	{

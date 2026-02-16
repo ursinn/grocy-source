@@ -2701,3 +2701,6 @@ msgstr ""
 
 msgid "Lata"
 msgstr ""
+
+msgid "Print stock entry label"
+msgstr ""

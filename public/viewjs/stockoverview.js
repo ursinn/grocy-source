@@ -108,7 +108,7 @@ $("#search").on("keyup", Delay(function()
 		value = "";
 	}
 
-	stockOverviewTable.search(value).draw();
+	stockOverviewTable.search(NormalizeString(value)).draw();
 }, Grocy.FormFocusDelay));
 
 $(document).on('click', '.product-grocycode-label-print', function(e)
@@ -445,7 +445,7 @@ $(document).on("click", ".stock-overview-context-menu-button", function(e)
 
 		if (template.includes("recipes?search="))
 		{
-			link.attr("href", template + productName + suffix);
+			link.attr("href", template + encodeURIComponent(productName) + suffix);
 		}
 		else if (template.includes("summary?embedded&product_id="))
 		{
@@ -463,8 +463,8 @@ $(document).on("click", ".stock-overview-context-menu-button", function(e)
 	});
 
 	// Special handlers
-	modal.find(".productcard-trigger").data("product-id", productId);
-	modal.find(".product-grocycode-label-print").data("product-id", productId);
+	modal.find(".productcard-trigger").attr("data-product-id", productId);
+	modal.find(".product-grocycode-label-print").attr("data-product-id", productId);
 	modal.find("a[data-dialog-type='table']").attr("data-product-id", productId);
 
 	// Permissions / State

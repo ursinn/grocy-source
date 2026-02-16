@@ -1,3 +1,13 @@
+function NormalizeString(s)
+{
+	if (typeof s != "string")
+	{
+		return s;
+	}
+
+	return s.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 EmptyElementWhenMatches = function(selector, text)
 {
 	if ($(selector).text() === text)
@@ -8,7 +18,7 @@ EmptyElementWhenMatches = function(selector, text)
 
 String.prototype.contains = function(search)
 {
-	return this.toLowerCase().indexOf(search.toLowerCase()) !== -1;
+	return NormalizeString(this).toLowerCase().indexOf(NormalizeString(search).toLowerCase()) !== -1;
 };
 
 String.prototype.replaceAll = function(search, replacement)
@@ -83,7 +93,7 @@ $.extend($.expr[":"],
 	{
 		"contains_case_insensitive": function(elem, i, match, array)
 		{
-			return (elem.textContent || elem.innerText || "").toLowerCase().indexOf((match[3] || "").toLowerCase()) >= 0;
+			return NormalizeString(elem.textContent || elem.innerText || "").toLowerCase().indexOf(NormalizeString(match[3] || "").toLowerCase()) >= 0;
 		}
 	});
 
@@ -211,6 +221,7 @@ function CleanFileName(fileName)
 	return fileName;
 }
 
+
 function nl2br(s)
 {
 	if (s == null || s === undefined)
@@ -219,4 +230,79 @@ function nl2br(s)
 	}
 
 	return s.replace(/([^>\r\n]?)(\r\n|\n\r|\r|\n)/g, "$1<br>$2");
+}
+
+if ($.fn.combobox)
+{
+	$.fn.combobox.defaults.matcher = function(item)
+	{
+		return NormalizeString(item).toLowerCase().contains(NormalizeString(this.query).toLowerCase());
+	};
+}
+
+if ($.fn.DataTable || $.fn.dataTable)
+{
+	var DT = $.fn.DataTable || $.fn.dataTable;
+
+	// Global search term normalization
+	// We use the internal _api_register if possible, or just the prototype
+	var oldApiSearch = DT.Api.prototype.search;
+	DT.Api.prototype.search = function(conf, ...args)
+	{
+		if (typeof conf === 'string')
+		{
+			conf = NormalizeString(conf);
+		}
+		return oldApiSearch.apply(this, [conf, ...args]);
+	};
+
+	// We can't easily override column().search() via prototype because column() returns a new instance
+	// but we can try to hook into the initialization or use a interval to check instances if needed.
+	// However, most DataTables versions use the same internal search function.
+	// Let's try to hook into the column search specifically if it's separate.
+	if (DT.Api.prototype.column)
+	{
+		// In many versions, column().search is the same function as global search
+		// but let's be sure by checking if we need to hook it specifically.
+	}
+
+	// Global DataTables filter for accent-insensitive searching
+	// This acts as a secondary filter to show rows that should match regardless of DataTables internal index
+	$.fn.dataTable.ext.search.push(function(settings, data, dataIndex)
+	{
+		var searchTerm = settings.oPreviousSearch.sSearch;
+		if (!searchTerm)
+		{
+			return true;
+		}
+
+		var normalizedSearchTerm = NormalizeString(searchTerm);
+		var words = normalizedSearchTerm.split(' ');
+
+		// Row data is already in 'data' array (one entry per column)
+		var rowData = data.join(' ');
+		var normalizedRowData = NormalizeString(rowData);
+
+		for (var i = 0; i < words.length; i++)
+		{
+			if (normalizedRowData.indexOf(words[i]) === -1)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	});
+
+	// Ensure standard search types also index normalized data
+	var types = ['string', 'html', 'chinese-string', 'num', 'num-fmt', 'date'];
+	types.forEach(function(type)
+	{
+		var oldSearchType = DT.ext.type.search[type];
+		DT.ext.type.search[type] = function(data)
+		{
+			var processed = oldSearchType ? oldSearchType(data) : data;
+			return typeof processed === 'string' ? processed + ' ' + NormalizeString(processed) : processed;
+		};
+	});
 }

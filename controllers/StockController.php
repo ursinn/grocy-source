@@ -62,7 +62,7 @@ class StockController extends BaseController
 
 		if (isset($request->getQueryParams()['product']) && filter_var($request->getQueryParams()['product'], FILTER_VALIDATE_INT) !== false) {
 			$productId = $request->getQueryParams()['product'];
-			$where .= " AND product_id = $productId";
+			$where .= " AND (product_id = $productId OR product_id IN (SELECT sub_product_id FROM products_resolved WHERE parent_product_id = $productId))";
 		}
 
 		$usersService = $this->getUsersService();
@@ -522,12 +522,19 @@ class StockController extends BaseController
 		$usersService = $this->getUsersService();
 		$nextXDays = $usersService->GetUserSettings(GROCY_USER_ID)['stock_due_soon_days'];
 
+		$stockEntries = $this->getDatabase()->uihelper_stock_entries();
+		if (isset($request->getQueryParams()['product'])) {
+			$productId = $request->getQueryParams()['product'];
+			$stockEntries = $stockEntries->where('product_id = :1 OR parent_product_id = :1', $productId);
+		}
+		$stockEntries = $stockEntries->orderBy('product_id');
+
 		return $this->renderPage($response, 'stockentries', [
 			'products' => $this->getDatabase()->products()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
 			'quantityunits' => $this->getDatabase()->quantity_units()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
 			'locations' => $this->getDatabase()->locations()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
 			'shoppinglocations' => $this->getDatabase()->shopping_locations()->where('active = 1')->orderBy('name', 'COLLATE NOCASE'),
-			'stockEntries' => $this->getDatabase()->uihelper_stock_entries()->orderBy('product_id'),
+			'stockEntries' => $stockEntries,
 			'currentStockLocations' => $this->getStockService()->GetCurrentStockLocations(),
 			'nextXDays' => $nextXDays,
 			'userfieldsProducts' => $this->getUserfieldsService()->GetFields('products'),
@@ -552,7 +559,8 @@ class StockController extends BaseController
 	{
 		$entries = $this->getDatabase()->uihelper_stock_journal_summary();
 		if (isset($request->getQueryParams()['product_id'])) {
-			$entries = $entries->where('product_id', $request->getQueryParams()['product_id']);
+			$productId = $request->getQueryParams()['product_id'];
+			$entries = $entries->where('product_id = :1 OR product_id IN (SELECT sub_product_id FROM products_resolved WHERE parent_product_id = :1)', $productId);
 		}
 		if (isset($request->getQueryParams()['user_id'])) {
 			$entries = $entries->where('user_id', $request->getQueryParams()['user_id']);
