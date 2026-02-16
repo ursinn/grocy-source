@@ -234,96 +234,15 @@
 						</a>
 						@endif
 						<div class="dropdown d-inline-block">
-							<button class="btn btn-sm btn-light text-secondary"
+							<button class="btn btn-sm btn-light text-secondary stock-overview-context-menu-button"
 								type="button"
-								data-toggle="dropdown">
+								data-boundary="window"
+								data-product-id="{{ $currentStockEntry->product_id }}"
+								data-product-name="{{ $currentStockEntry->product_name }}"
+								data-amount="{{ $currentStockEntry->amount }}"
+								data-amount-aggregated="{{ $currentStockEntry->amount_aggregated }}">
 								<i class="fa-solid fa-ellipsis-v"></i>
 							</button>
-							<div class="table-inline-menu dropdown-menu dropdown-menu-right">
-								@if(GROCY_FEATURE_FLAG_SHOPPINGLIST)
-								<a class="dropdown-item show-as-dialog-link permission-SHOPPINGLIST_ITEMS_ADD"
-									type="button"
-									href="{{ $U('/shoppinglistitem/new?embedded&updateexistingproduct&list=1&product=' . $currentStockEntry->product_id ) }}">
-									<span class="dropdown-item-icon"><i class="fa-solid fa-shopping-cart"></i></span> <span class="dropdown-item-text">{{ $__t('Add to shopping list') }}</span>
-								</a>
-								<div class="dropdown-divider"></div>
-								@endif
-								<a class="dropdown-item show-as-dialog-link permission-STOCK_PURCHASE"
-									type="button"
-									href="{{ $U('/purchase?embedded&product=' . $currentStockEntry->product_id ) }}">
-									<span class="dropdown-item-icon"><i class="fa-solid fa-cart-plus"></i></span> <span class="dropdown-item-text">{{ $__t('Purchase') }}</span>
-								</a>
-								<a class="dropdown-item show-as-dialog-link permission-STOCK_CONSUME @if($currentStockEntry->amount_aggregated <= 0) disabled @endif"
-									type="button"
-									href="{{ $U('/consume?embedded&product=' . $currentStockEntry->product_id ) }}">
-									<span class="dropdown-item-icon"><i class="fa-solid fa-utensils"></i></span> <span class="dropdown-item-text">{{ $__t('Consume') }}</span>
-								</a>
-								@if(GROCY_FEATURE_FLAG_STOCK_LOCATION_TRACKING)
-								<a class="dropdown-item show-as-dialog-link permission-STOCK_TRANSFER @if($currentStockEntry->amount <= 0) disabled @endif"
-									type="button"
-									href="{{ $U('/transfer?embedded&product=' . $currentStockEntry->product_id) }}">
-									<span class="dropdown-item-icon"><i class="fa-solid fa-exchange-alt"></i></span> <span class="dropdown-item-text">{{ $__t('Transfer') }}</span>
-								</a>
-								@endif
-								<a class="dropdown-item show-as-dialog-link permission-STOCK_INVENTORY"
-									type="button"
-									href="{{ $U('/inventory?embedded&product=' . $currentStockEntry->product_id ) }}">
-									<span class="dropdown-item-icon"><i class="fa-solid fa-list"></i></span> <span class="dropdown-item-text">{{ $__t('Inventory') }}</span>
-								</a>
-								@if(GROCY_FEATURE_FLAG_RECIPES)
-								<div class="dropdown-divider"></div>
-								<a class="dropdown-item"
-									type="button"
-									href="{{ $U('/recipes?search=') }}{{ $currentStockEntry->product_name }}">
-									<span class="dropdown-item-text">{{ $__t('Search for recipes containing this product') }}</span>
-								</a>
-								@endif
-								<div class="dropdown-divider"></div>
-								<a class="dropdown-item productcard-trigger"
-									data-product-id="{{ $currentStockEntry->product_id }}"
-									type="button"
-									href="#">
-									<span class="dropdown-item-text">{{ $__t('Product overview') }}</span>
-								</a>
-								<a class="dropdown-item show-as-dialog-link"
-									type="button"
-									href="{{ $U('/stockentries?embedded&product=') }}{{ $currentStockEntry->product_id }}"
-									data-dialog-type="table"
-									data-product-id="{{ $currentStockEntry->product_id }}">
-									<span class="dropdown-item-text">{{ $__t('Stock entries') }}</span>
-								</a>
-								<a class="dropdown-item show-as-dialog-link"
-									type="button"
-									href="{{ $U('/stockjournal?embedded&product=') }}{{ $currentStockEntry->product_id }}"
-									data-dialog-type="table">
-									<span class="dropdown-item-text">{{ $__t('Stock journal') }}</span>
-								</a>
-								<a class="dropdown-item show-as-dialog-link"
-									type="button"
-									href="{{ $U('/stockjournal/summary?embedded&product_id=') }}{{ $currentStockEntry->product_id }}"
-									data-dialog-type="table">
-									<span class="dropdown-item-text">{{ $__t('Stock journal summary') }}</span>
-								</a>
-								<a class="dropdown-item permission-MASTER_DATA_EDIT link-return"
-									type="button"
-									data-href="{{ $U('/product/') }}{{ $currentStockEntry->product_id }}">
-									<span class="dropdown-item-text">{{ $__t('Edit product') }}</span>
-								</a>
-								<div class="dropdown-divider"></div>
-								<a class="dropdown-item"
-									type="button"
-									href="{{ $U('/product/' . $currentStockEntry->product_id . '/grocycode?download=true') }}">
-									{!! str_replace('Grocycode', '<span class="ls-n1">Grocycode</span>', $__t('Download %s Grocycode', $__t('Product'))) !!}
-								</a>
-								@if(GROCY_FEATURE_FLAG_LABEL_PRINTER)
-								<a class="dropdown-item product-grocycode-label-print"
-									data-product-id="{{ $currentStockEntry->product_id }}"
-									type="button"
-									href="#">
-									{!! str_replace('Grocycode', '<span class="ls-n1">Grocycode</span>', $__t('Print %s Grocycode on label printer', $__t('Product'))) !!}
-								</a>
-								@endif
-							</div>
 						</div>
 					</td>
 					<td class="productcard-trigger cursor-link"
@@ -468,6 +387,123 @@
 				@endforeach
 			</tbody>
 		</table>
+	</div>
+</div>
+
+<div class="modal fade"
+	id="stock-overview-row-context-menu"
+	tabindex="-1">
+	<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">
+					<span class="product-name"></span>
+				</h5>
+				<button type="button"
+					class="close"
+					data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body py-0">
+				<div class="p-2">
+					@if(GROCY_FEATURE_FLAG_SHOPPINGLIST)
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link permission-SHOPPINGLIST_ITEMS_ADD d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/shoppinglistitem/new?embedded&updateexistingproduct&list=1&product=') }}">
+						<i class="fa-solid fa-shopping-cart mr-3"></i> <span>{{ $__t('Add to shopping list') }}</span>
+					</a>
+					@endif
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link permission-STOCK_PURCHASE d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/purchase?embedded&product=') }}">
+						<i class="fa-solid fa-cart-plus mr-3"></i> <span>{{ $__t('Purchase') }}</span>
+					</a>
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link permission-STOCK_CONSUME d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/consume?embedded&product=') }}">
+						<i class="fa-solid fa-utensils mr-3"></i> <span>{{ $__t('Consume') }}</span>
+					</a>
+					@if(GROCY_FEATURE_FLAG_STOCK_LOCATION_TRACKING)
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link permission-STOCK_TRANSFER d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/transfer?embedded&product=') }}">
+						<i class="fa-solid fa-exchange-alt mr-3"></i> <span>{{ $__t('Transfer') }}</span>
+					</a>
+					@endif
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link permission-STOCK_INVENTORY d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/inventory?embedded&product=') }}">
+						<i class="fa-solid fa-list mr-3"></i> <span>{{ $__t('Inventory') }}</span>
+					</a>
+					@if(GROCY_FEATURE_FLAG_RECIPES)
+					<a class="btn btn-outline-secondary btn-block text-left d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/recipes?search=') }}">
+						<span>{{ $__t('Search for recipes containing this product') }}</span>
+					</a>
+					@endif
+					<a class="btn btn-outline-secondary btn-block text-left productcard-trigger d-flex align-items-center py-2 mb-2"
+						href="#"
+						type="button">
+						<span>{{ $__t('Product overview') }}</span>
+					</a>
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/stockentries?embedded&product=') }}"
+						data-dialog-type="table">
+						<span>{{ $__t('Stock entries') }}</span>
+					</a>
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/stockjournal?embedded&product=') }}"
+						data-dialog-type="table">
+						<span>{{ $__t('Stock journal') }}</span>
+					</a>
+					<a class="btn btn-outline-secondary btn-block text-left show-as-dialog-link d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/stockjournal/summary?embedded&product_id=') }}"
+						data-dialog-type="table">
+						<span>{{ $__t('Stock journal summary') }}</span>
+					</a>
+					<a class="btn btn-outline-secondary btn-block text-left permission-MASTER_DATA_EDIT link-return d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href="#"
+						data-href-template="{{ $U('/product/') }}">
+						<span>{{ $__t('Edit product') }}</span>
+					</a>
+					<a class="btn btn-outline-secondary btn-block text-left d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#"
+						data-href-template="{{ $U('/product/') }}"
+						data-href-template-suffix="/grocycode?download=true">
+						{!! str_replace('Grocycode', '<span class="ls-n1">Grocycode</span>', $__t('Download %s Grocycode', $__t('Product'))) !!}
+					</a>
+					@if(GROCY_FEATURE_FLAG_LABEL_PRINTER)
+					<a class="btn btn-outline-secondary btn-block text-left product-grocycode-label-print d-flex align-items-center py-2 mb-2"
+						type="button"
+						href="#">
+						{!! str_replace('Grocycode', '<span class="ls-n1">Grocycode</span>', $__t('Print %s Grocycode on label printer', $__t('Product'))) !!}
+					</a>
+					@endif
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button"
+					class="btn btn-secondary"
+					data-dismiss="modal">{{ $__t('Close') }}</button>
+			</div>
+		</div>
 	</div>
 </div>
 

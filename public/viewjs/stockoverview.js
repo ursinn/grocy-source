@@ -418,3 +418,74 @@ $(window).on("message", function(e)
 		RefreshStatistics();
 	}
 });
+
+// Shared stock overview context menu
+// Shared stock overview context menu
+$(document).on("click", ".stock-overview-context-menu-button", function(e)
+{
+	e.preventDefault();
+
+	var button = $(e.currentTarget);
+	var modal = $("#stock-overview-row-context-menu");
+
+	// Update Data
+	var productId = button.data("product-id");
+	var productName = button.data("product-name");
+	var amount = button.data("amount");
+	var amountAggregated = button.data("amount-aggregated");
+
+	modal.find(".product-name").text(productName);
+
+	// Update Links
+	modal.find("a[data-href-template]").each(function()
+	{
+		var link = $(this);
+		var template = link.data("href-template");
+		var suffix = link.data("href-template-suffix") || "";
+
+		if (template.includes("recipes?search="))
+		{
+			link.attr("href", template + productName + suffix);
+		}
+		else if (template.includes("summary?embedded&product_id="))
+		{
+			link.attr("href", template + productId + suffix);
+		}
+		else
+		{
+			link.attr("href", template + productId + suffix);
+		}
+
+		if (link.hasClass("link-return"))
+		{
+			link.data("href", template + productId + suffix);
+		}
+	});
+
+	// Special handlers
+	modal.find(".productcard-trigger").data("product-id", productId);
+	modal.find(".product-grocycode-label-print").data("product-id", productId);
+	modal.find("a[data-dialog-type='table']").attr("data-product-id", productId);
+
+	// Permissions / State
+	if (amountAggregated <= 0)
+	{
+		modal.find(".permission-STOCK_CONSUME").addClass("disabled");
+	}
+	else
+	{
+		modal.find(".permission-STOCK_CONSUME").removeClass("disabled");
+	}
+
+	if (amount <= 0)
+	{
+		modal.find(".permission-STOCK_TRANSFER").addClass("disabled");
+	}
+	else
+	{
+		modal.find(".permission-STOCK_TRANSFER").removeClass("disabled");
+	}
+
+	// Show modal
+	modal.modal("show");
+});
