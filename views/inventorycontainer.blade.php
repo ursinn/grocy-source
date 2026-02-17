@@ -225,6 +225,8 @@
 
 @include('components.camerabarcodescanner')
 
+
+
 <div class="modal fade" id="stockentry-context-menu" tabindex="-1">
 	<div class="modal-dialog modal-dialog-scrollable">
 		<div class="modal-content">
@@ -354,5 +356,9 @@
 		</div>
 	</div>
 </div>
+
+@include('components.productcard', [
+	'asModal' => true
+])
 
 @stop
