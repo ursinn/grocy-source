@@ -232,6 +232,7 @@ a:not([href]) {
 .was-validated .form-control:valid,
 .was-validated .custom-control:valid {
 	background-image: none;
+	padding-right: 0.75rem !important;
 }
 
 .was-validated .custom-select:valid,
@@ -324,7 +325,6 @@ a:not([href]) {
 	border: 0;
 }
 
-
 .dropdown-menu {
 	max-height: 100vh;
 	overflow-y: auto;
@@ -389,6 +389,24 @@ tr.dtrg-group {
 @media (max-width: 767.98px) {
 	.width-xs-sm-100 {
 		width: 100%;
+	}
+
+	.title-related-links h2 {
+		font-size: 1.1rem;
+	}
+
+	.title-related-links .title {
+		font-size: 1.5rem;
+	}
+
+	.title-related-links h2.width-xs-sm-100 {
+		width: auto;
+		order: 1;
+	}
+
+	.title-related-links .btn.d-md-none {
+		order: 2;
+		margin-top: 3px !important;
 	}
 }
 
@@ -577,9 +595,6 @@ html {
 }
 
 @media (max-width: 768px) {
-	#table-filter-row div:not(:first-of-type) {
-		margin-top: 8px;
-	}
 }
 
 .modal-context-menu-button-compact {

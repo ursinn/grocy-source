@@ -92,10 +92,10 @@
 </div>
 <div class="row collapse show d-md-flex"
 	id="table-filter-row">
-	<div class="col-12 col-md-6 col-xl-3">
+	<div class="col-6 col-md-6 col-xl-3 mb-2">
 		<div class="input-group">
 			<div class="input-group-prepend">
-				<span class="input-group-text"><i class="fa-solid fa-search"></i></span>
+				<span class="input-group-text"><i class="fa-solid fa-search fa-fw"></i></span>
 			</div>
 			<input type="text"
 				id="search"
@@ -104,10 +104,10 @@
 		</div>
 	</div>
 	@if(GROCY_FEATURE_FLAG_STOCK_LOCATION_TRACKING)
-	<div class="col-12 col-md-6 col-xl-3">
+	<div class="col-6 col-md-6 col-xl-3 mb-2">
 		<div class="input-group">
 			<div class="input-group-prepend">
-				<span class="input-group-text"><i class="fa-solid fa-filter"></i>&nbsp;{{ $__t('Location') }}</span>
+				<span class="input-group-text"><i class="fa-solid fa-map-marker-alt fa-fw"></i><span class="d-none d-md-inline">&nbsp;{{ $__t('Location') }}</span></span>
 			</div>
 			<select class="custom-control custom-select"
 				id="location-filter">
@@ -119,10 +119,10 @@
 		</div>
 	</div>
 	@endif
-	<div class="col-12 col-md-6 col-xl-3">
+	<div class="col-6 col-md-6 col-xl-3 mb-2">
 		<div class="input-group">
 			<div class="input-group-prepend">
-				<span class="input-group-text"><i class="fa-solid fa-filter"></i>&nbsp;{{ $__t('Product group') }}</span>
+				<span class="input-group-text"><i class="fa-solid fa-tags fa-fw"></i><span class="d-none d-md-inline">&nbsp;{{ $__t('Product group') }}</span></span>
 			</div>
 			<select class="custom-control custom-select"
 				id="product-group-filter">
@@ -133,10 +133,10 @@
 			</select>
 		</div>
 	</div>
-	<div class="col-12 col-md-6 col-xl-3">
+	<div class="col-6 col-md-6 col-xl-3 mb-2">
 		<div class="input-group">
 			<div class="input-group-prepend">
-				<span class="input-group-text"><i class="fa-solid fa-filter"></i>&nbsp;{{ $__t('Status') }}</span>
+				<span class="input-group-text"><i class="fa-solid fa-clock fa-fw"></i><span class="d-none d-md-inline">&nbsp;{{ $__t('Status') }}</span></span>
 			</div>
 			<select class="custom-control custom-select"
 				id="status-filter">

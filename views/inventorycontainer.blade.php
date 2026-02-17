@@ -11,14 +11,13 @@
 
 <div class="row">
 	<div class="col-12 col-md-6 col-xl-4 pb-3">
-		<h2 class="title">@yield('title')</h2>
+		<h2 class="title">@yield('title') <i class="fa-solid fa-question-circle text-muted small" data-toggle="tooltip"
+				title="{{ $__t('Scan the barcode on your container to perform inventory by container weight. Each container can have its own tare weight set via stock entry user fields.') }}"></i>
+		</h2>
 
 		<hr class="my-2">
 
-		<div class="alert alert-info" role="alert">
-			<i class="fa-solid fa-info-circle"></i>
-			{{ $__t('Scan the barcode on your container to perform inventory by container weight. Each container can have its own tare weight set via stock entry user fields.') }}
-		</div>
+
 
 		<form id="container-inventory-form" novalidate>
 
@@ -27,6 +26,12 @@
 					<i id="barcode-lookup-hint" class="fa-solid fa-barcode float-right mt-1"></i>
 				</label>
 				<div class="input-group">
+					<div class="input-group-prepend">
+						<button id="clear-container-scanner" class="btn btn-outline-secondary" type="button"
+							data-toggle="tooltip" title="{{ $__t('Clear') }}">
+							<i class="fa-solid fa-times"></i>
+						</button>
+					</div>
 					<input type="text" class="form-control barcodescanner-input" id="container_scanner"
 						name="container_tag" data-target="#container_scanner" autocomplete="off">
 				</div>
@@ -34,8 +39,8 @@
 			</div>
 
 			<div id="container-details" class="d-none">
-				<div class="card mb-3">
-					<div class="d-flex justify-content-between align-items-center">
+				<div class="card mb-1">
+					<div class="card-header py-1 d-flex justify-content-between align-items-center">
 						<h5 class="card-title mb-0">{{ $__t('Container details') }}</h5>
 						<div id="container-actions" class="d-none">
 							<a class="btn btn-danger btn-sm container-consume-button" href="#" data-toggle="tooltip"
@@ -52,63 +57,51 @@
 							</button>
 						</div>
 					</div>
-				</div>
-				<div class="card-body">
-					<div class="row">
-						<div class="col-6">
-							<strong>{{ $__t('Product') }}:</strong><br>
-							<span id="product_name"></span>
-						</div>
-						<div class="col-6">
-							<strong>{{ $__t('Current amount') }}:</strong><br>
-							<span id="current_amount"></span>
-						</div>
-					</div>
-					<div class="row mt-2">
-						<div class="col-6">
-							<strong>{{ $__t('Location') }}:</strong><br>
-							<span id="location_name"></span>
-						</div>
-						<div class="col-6">
-							<strong>{{ $__t('Container weight') }}:</strong><br>
-							<span id="container_weight"></span>
-						</div>
-					</div>
-					<div class="row mt-2">
-						<div class="col-12">
-							<strong>{{ $__t('Best before') }}:</strong><br>
-							<span id="best_before_date"></span>
+					<div class="card-body p-1">
+						<div class="row no-gutters">
+							<div class="col-6 mb-1 px-1">
+								<small class="text-muted d-block">{{ $__t('Product') }}</small>
+								<div class="font-weight-bold small" id="product_name"></div>
+							</div>
+							<div class="col-6 mb-1 px-1">
+								<small class="text-muted d-block">{{ $__t('Current amount') }}</small>
+								<div class="font-weight-bold small" id="current_amount"></div>
+							</div>
+							<div class="col-6 mb-1 px-1">
+								<small class="text-muted d-block">{{ $__t('Location') }}</small>
+								<div class="font-weight-bold small" id="location_name"></div>
+							</div>
+							<div class="col-6 mb-1 px-1">
+								<small class="text-muted d-block">{{ $__t('Container weight') }}</small>
+								<div class="font-weight-bold small" id="container_weight"></div>
+							</div>
+							<div class="col-12 px-1">
+								<small class="text-muted d-block">{{ $__t('Best before') }}</small>
+								<div class="font-weight-bold small" id="best_before_date"></div>
+							</div>
 						</div>
 					</div>
 				</div>
 
 
-				<div class="form-group">
-					<label for="gross_weight">{{ $__t('Gross weight') }} <i
-							class="fa-solid fa-question-circle text-muted" data-toggle="tooltip"
-							title="{{ $__t('Total weight including container') }}"></i></label>
-					<div class="input-group">
-						<input type="number" class="form-control locale-number-input" id="gross_weight"
-							name="gross_weight" step="{{ $weight_precision_tolerance }}" min="0" placeholder="0">
-						<div class="input-group-append">
-							<span class="input-group-text" id="gross_weight_unit"></span>
-						</div>
+				<div class="form-row mb-1">
+					<div class="col-6">
+						<label for="gross_weight">{{ $__t('Weight | Net | Difference') }} <i
+								class="fa-solid fa-question-circle text-muted" data-toggle="tooltip"
+								title="{{ $__t('Total weight including container') }}"></i></label>
+					</div>
+				</div>
+
+				<div class="input-group mb-3">
+					<input type="number" class="form-control locale-number-input" id="gross_weight" name="gross_weight"
+						step="{{ $weight_precision_tolerance }}" min="0" placeholder="0">
+					<input type="text" class="form-control" id="net_weight" readonly style="cursor: not-allowed;"
+						tabindex="-1">
+					<div class="input-group-append">
+						<span class="input-group-text" id="gross_weight_unit"></span>
+						<span class="input-group-text d-none order-first" id="net_weight_diff"></span>
 					</div>
 					<div class="invalid-feedback"></div>
-				</div>
-
-				<div class="form-group">
-					<label>{{ $__t('Calculated net weight') }}</label>
-					<div class="input-group">
-						<input type="text" class="form-control" id="net_weight" readonly style="cursor: not-allowed;"
-							tabindex="-1">
-						<div class="input-group-append">
-							<span class="input-group-text" id="net_weight_unit"></span>
-						</div>
-					</div>
-					<small class="form-text text-muted">
-						{{ $__t('Net weight = Gross weight - Container weight') }}
-					</small>
 				</div>
 			</div>
 

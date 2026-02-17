@@ -203,6 +203,10 @@ $("#container_scanner").on("keydown", function (e) {
 	}
 });
 
+$("#clear-container-scanner").on("click", function () {
+	clearForm();
+});
+
 $("#gross_weight").on("input blur change", function () {
 	validateGrossWeight();
 	calculateNetWeight();
@@ -566,6 +570,32 @@ function calculateNetWeight() {
 	}
 
 	$("#net_weight").val(formatAmount(netWeight));
+
+	// Calculate and display difference
+	var diffElement = $("#net_weight_diff");
+	if (CurrentStockEntry && CurrentStockEntry.stock_entry) {
+		var currentAmount = parseFloat(CurrentStockEntry.stock_entry.amount) || 0;
+		var difference = netWeight - currentAmount;
+
+		if (Math.abs(difference) >= WEIGHT_PRECISION_TOLERANCE) {
+			var sign = difference > 0 ? "+" : "";
+			diffElement.text(sign + formatAmount(difference));
+
+			// Remove existing color classes
+			diffElement.removeClass("text-success text-danger d-none");
+
+			// Add appropriate color class
+			if (difference > 0) {
+				diffElement.addClass("text-success");
+			} else {
+				diffElement.addClass("text-danger");
+			}
+		} else {
+			diffElement.addClass("d-none");
+		}
+	} else {
+		diffElement.addClass("d-none");
+	}
 
 	// Show inventory scenario information
 	updateInventoryScenario(netWeight);
