@@ -2704,3 +2704,120 @@ msgstr ""
 
 msgid "Print stock entry label"
 msgstr ""
+
+msgid "Scan the barcode on your container to perform inventory by container weight. Each container can have its own tare weight set via stock entry user fields."
+msgstr ""
+
+msgid "Container barcode"
+msgstr ""
+
+msgid "Container details"
+msgstr ""
+
+msgid "Current amount"
+msgstr ""
+
+msgid "Container weight"
+msgstr ""
+
+msgid "Gross weight"
+msgstr ""
+
+msgid "Total weight including container"
+msgstr ""
+
+msgid "Calculated net weight"
+msgstr ""
+
+msgid "Net weight = Gross weight - Container weight"
+msgstr ""
+
+msgid "Stock source"
+msgstr ""
+
+msgid "Select where this stock came from"
+msgstr ""
+
+msgid "Select the stock entry that this additional stock was transferred from"
+msgstr ""
+
+msgid "Add remaining stock without source"
+msgstr ""
+
+msgid "Only transfer what is available (adjust inventory to match)"
+msgstr ""
+
+msgid "Stock destination"
+msgstr ""
+
+msgid "Consumed"
+msgstr ""
+
+msgid "Transferred to another stock entry"
+msgstr ""
+
+msgid "Select destination stock entry"
+msgstr ""
+
+msgid "Save inventory"
+msgstr ""
+
+msgid "Recent container inventories"
+msgstr ""
+
+msgid "Container weight not set"
+msgstr ""
+
+msgid "This container does not have a container weight set. You need to set the container weight in the stock entry user fields before you can use container inventory."
+msgstr ""
+
+msgid "Steps"
+msgstr ""
+
+msgid "Close this modal"
+msgstr ""
+
+msgid "Click the \"Edit stock entry\" button"
+msgstr ""
+
+msgid "Set the \"Stock Entry Container Weight\" user field"
+msgstr ""
+
+msgid "Save and scan again"
+msgstr ""
+
+msgid "Date"
+msgstr ""
+
+msgid "No inventory change detected - adjust the gross weight to reflect actual inventory"
+msgstr ""
+
+msgid "Invalid barcode format. Expected container barcode (grcy:p:PRODUCT_ID:STOCK_ID)"
+msgstr ""
+
+msgid "Stock decreased by %1$s. Please specify where this stock went."
+msgstr ""
+
+msgid "Stock increased by %1$s. Please specify where this stock came from."
+msgstr ""
+
+msgid "All %1$s will be added without a source transfer"
+msgstr ""
+
+msgid "Select stock entry"
+msgstr ""
+
+msgid "Adding %1$s (%2$s%% increase from current amount). Please verify this measurement is correct."
+msgstr ""
+
+msgid "Weight Inconsistency Warning"
+msgstr ""
+
+msgid "Weight | Net | Difference"
+msgstr ""
+
+msgid "%s day"
+msgstr ""
+
+msgid "transfer"
+msgstr ""

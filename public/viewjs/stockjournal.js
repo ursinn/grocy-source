@@ -61,7 +61,7 @@ $("#user-filter").on("change", function()
 
 $("#daterange-filter").on("change", function()
 {
-	UpdateUriParam("months", $(this).val());
+	UpdateUriParam("days", $(this).val());
 	window.location.reload();
 });
 
@@ -82,8 +82,9 @@ $("#clear-filter-button").on("click", function()
 	$("#transaction-type-filter").val("all");
 	$("#location-filter").val("all");
 	$("#user-filter").val("all");
-	$("#daterange-filter").val("6");
+	$("#daterange-filter").val("d5");
 	RemoveUriParam("months");
+	RemoveUriParam("days");
 
 	if (GetUriParam("embedded") === undefined)
 	{
@@ -99,9 +100,14 @@ if (typeof GetUriParam("product") !== "undefined")
 	$("#product-filter").val(GetUriParam("product"));
 }
 
+if (typeof GetUriParam("days") !== "undefined")
+{
+	$("#daterange-filter").val(GetUriParam("days"));
+}
+
 if (typeof GetUriParam("months") !== "undefined")
 {
-	$("#daterange-filter").val(GetUriParam("months"));
+	$("#daterange-filter").val(GetUriParam("months") * 30);
 }
 
 $(document).on('click', '.undo-stock-booking-button', function(e)
@@ -146,4 +152,57 @@ $(document).on('click', '.product-grocycode-label-print', function(e)
 			Grocy.FrontendHelpers.RunWebhook(Grocy.Webhooks.labelprinter, labelData);
 		}
 	});
+});
+
+$(document).on("click", ".stock-journal-context-menu-button", function(e)
+{
+	e.preventDefault();
+
+	var button = $(e.currentTarget);
+	var modal = $("#stock-journal-row-context-menu");
+
+	// Update Data
+	var bookingId = button.data("booking-id");
+	var productId = button.data("product-id");
+	var productName = button.data("product-name");
+	var correlationId = button.data("correlation-id");
+
+	modal.find(".product-name").text(productName);
+	modal.find(".product-name").attr("data-product-id", productId);
+	modal.find(".product-name").attr("data-booking-id", bookingId);
+	modal.find(".product-name").attr("data-correlation-id", correlationId);
+
+	// Update Links
+	modal.find("a[data-href-template]").each(function()
+	{
+		var link = $(this);
+		var template = link.data("href-template");
+		var suffix = link.data("href-template-suffix") || "";
+
+		if (template.includes("recipes?search="))
+		{
+			link.attr("href", template + encodeURIComponent(productName) + suffix);
+		}
+		else if (template.includes("summary?embedded&product_id="))
+		{
+			link.attr("href", template + productId + suffix);
+		}
+		else
+		{
+			link.attr("href", template + productId + suffix);
+		}
+
+		if (link.hasClass("link-return"))
+		{
+			link.data("href", template + productId + suffix);
+		}
+	});
+
+	// Special handlers
+	modal.find(".productcard-trigger").attr("data-product-id", productId);
+	modal.find(".product-grocycode-label-print").attr("data-product-id", productId);
+	modal.find("a[data-dialog-type='table']").attr("data-product-id", productId);
+
+	// Show modal
+	modal.modal("show");
 });
