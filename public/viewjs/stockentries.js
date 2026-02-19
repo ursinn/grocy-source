@@ -259,7 +259,7 @@ if (Grocy.Components.ProductPicker)
 
 function RefreshStockEntryRow(stockRowId)
 {
-	Grocy.Api.Get('stock/entries/' + stockRowId,
+	Grocy.Api.Get('stock/entry/' + stockRowId.toString().split(':')[0],
 		function(result)
 		{
 			var stockRow = $('#stock-' + stockRowId + '-row');
