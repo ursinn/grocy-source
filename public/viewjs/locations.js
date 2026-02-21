@@ -62,6 +62,20 @@ $(document).on('click', '.location-delete-button', function(e)
 	});
 });
 
+$(document).on('click', '.location-grocycode-label-print', function(e)
+{
+    e.preventDefault();
+
+    var locationId = $(e.currentTarget).attr('data-location-id');
+    Grocy.Api.Get('/stock/locations/' + locationId + '/printlabel', function(labelData)
+    {
+        if (Grocy.Webhooks.labelprinter !== undefined)
+        {
+            Grocy.FrontendHelpers.RunWebhook(Grocy.Webhooks.labelprinter, labelData);
+        }
+    });
+});
+
 $("#show-disabled").change(function()
 {
 	if (this.checked)

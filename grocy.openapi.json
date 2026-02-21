@@ -4797,6 +4797,19 @@
 					}
 				}
 			}
+		},
+		"/stock/locations/{locationId}/printlabel": {
+			"get": {
+				"tags": [
+					"Stock"
+				],
+				"summary": "Auto-generated documentation placeholder",
+				"responses": {
+					"200": {
+						"description": "Successful response"
+					}
+				}
+			}
 		}
 	},
 	"components": {

@@ -203,6 +203,7 @@ $app->group('/api', function (RouteCollectorProxy $group)
 	$group->post('/stock/products/by-barcode/{barcode}/inventory', '\Grocy\Controllers\StockApiController:InventoryProductByBarcode');
 	$group->post('/stock/products/by-barcode/{barcode}/open', '\Grocy\Controllers\StockApiController:OpenProductByBarcode');
 	$group->get('/stock/locations/{locationId}/entries', '\Grocy\Controllers\StockApiController:LocationStockEntries');
+    $group->get('/stock/locations/{locationId}/printlabel', '\Grocy\Controllers\StockApiController:LocationPrintLabel');
 	$group->get('/stock/bookings/{bookingId}', '\Grocy\Controllers\StockApiController:StockBooking');
 	$group->post('/stock/bookings/{bookingId}/undo', '\Grocy\Controllers\StockApiController:UndoBooking');
 	$group->get('/stock/transactions/{transactionId}', '\Grocy\Controllers\StockApiController:StockTransactions');

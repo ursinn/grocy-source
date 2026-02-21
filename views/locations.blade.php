@@ -115,6 +115,19 @@
 							title="{{ $__t('Delete this item') }}">
 							<i class="fa-solid fa-trash"></i>
 						</a>
+                        <a class="btn btn-outline-secondary btn-sm context-menu-button-download"
+                           href="{{ $U('/location/') }}{{ $location->id }}/grocycode?download=true"
+                           data-toggle="tooltip"
+                           title="{{ $__t('Download Location Grocycode') }}">
+                            <i class="fa-solid fa-barcode"></i>
+                        </a>
+                        <a class="btn btn-outline-secondary btn-sm location-grocycode-label-print context-menu-button-print"
+                           href="#"
+                           data-location-id="{{ $location->id }}"
+                           data-toggle="tooltip"
+                           title="{{ $__t('Print Location Grocycode on label printer') }}">
+                            <i class="fa-solid fa-print"></i>
+                        </a>
 					</td>
 					<td>
 						{{ $location->name }}

@@ -21,6 +21,7 @@ class Grocycode
 	public const BATTERY = 'b';
 	public const CHORE = 'c';
 	public const RECIPE = 'r';
+    public const LOCATION = 'l';
 	public const MAGIC = 'grcy';
 
 	public function __construct(...$args)
@@ -44,7 +45,7 @@ class Grocycode
 		throw new \Exception('No suitable overload found.');
 	}
 
-	public static $Items = [self::PRODUCT, self::BATTERY, self::CHORE, self::RECIPE];
+	public static $Items = [self::PRODUCT, self::BATTERY, self::CHORE, self::RECIPE, self::LOCATION];
 	private $type;
 	private $id;
 	private $extra_data = [];
