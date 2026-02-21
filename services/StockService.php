@@ -1378,7 +1378,8 @@ class StockService extends BaseService
 		$length = count($result_quantity);
 		for ($i = 0; $i < $length; $i++) {
 			$quantity = str_pad($result_quantity[$i], $maxlength);
-			array_push($result, $quantity . '  ' . $result_product[$i]);
+            $line = sprintf('%10.10s %-40.150s', $quantity, $result_product[$i]);
+			array_push($result, $line);
 		}
 
 		return $result;
