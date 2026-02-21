@@ -849,7 +849,14 @@ class StockApiController extends BaseApiController
 			], GROCY_LABEL_PRINTER_PARAMS);
 
 			if (GROCY_LABEL_PRINTER_RUN_SERVER) {
-				(new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+				$productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+				if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+					// ThermalPrint
+					$this->getPrintService()->printProductLabel($webhookData);
+				}
+				if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+					(new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+				}
 			}
 
 			return $this->ApiResponse($response, $webhookData);
@@ -884,7 +891,14 @@ class StockApiController extends BaseApiController
 			}
 
 			if (GROCY_LABEL_PRINTER_RUN_SERVER) {
-				(new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+				$productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+				if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+					// ThermalPrint
+					$this->getPrintService()->printProductLabel($webhookData);
+				}
+				if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+					(new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+				}
 			}
 
 			return $this->ApiResponse($response, $webhookData);

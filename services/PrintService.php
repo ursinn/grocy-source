@@ -9,6 +9,27 @@ use Mike42\Escpos\Printer;
 
 class PrintService extends BaseService
 {
+	public function printProductLabel(array $args)
+	{
+		$printer = self::getPrinterHandle();
+		if ($printer === false)
+		{
+			throw new \Exception('Unable to connect to printer');
+		}
+
+		$printer->setJustification(Printer::JUSTIFY_CENTER);
+		$printer->qrCode($args['grocycode'], Printer::QR_ECLEVEL_L, 4);
+		$printer->feed();
+		$printer->text($args['product']);
+        if (isset($args['due_date'])) {
+            $printer->feed();
+            $printer->text($args['due_date']);
+        }
+		$printer->feed(2);
+		$printer->cut();
+		$printer->close();
+	}
+
 	public function printShoppingList(bool $printHeader, array $lines): array
 	{
 		$printer = self::getPrinterHandle();

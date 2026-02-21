@@ -86,4 +86,9 @@ class BaseService
 	{
 		return PendingScansService::getInstance();
 	}
+
+    protected function getUserfieldsService()
+    {
+        return UserfieldsService::getInstance();
+    }
 }

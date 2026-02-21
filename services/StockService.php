@@ -211,8 +211,14 @@ class StockService extends BaseService
 							$webhookData['due_date'] = $this->getLocalizationService()->__t('DD') . ': ' . $bestBeforeDate;
 						}
 
-						$runner = new WebhookRunner();
-						$runner->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                        $productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+                        if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+                            // ThermalPrint
+                            $this->getPrintService()->printProductLabel($webhookData);
+                        }
+                        if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+                            (new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                        }
 					}
 				}
 			} else {
@@ -260,8 +266,14 @@ class StockService extends BaseService
 						$webhookData['due_date'] = $this->getLocalizationService()->__t('DD') . ': ' . $bestBeforeDate;
 					}
 
-					$runner = new WebhookRunner();
-					$runner->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                    $productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+                    if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+                        // ThermalPrint
+                        $this->getPrintService()->printProductLabel($webhookData);
+                    }
+                    if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+                        (new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                    }
 				}
 			}
 
@@ -1053,9 +1065,14 @@ class StockService extends BaseService
 				$webhookData['due_date'] = $this->getLocalizationService()->__t('DD') . ': ' . $stockEntry->best_before_date;
 			}
 
-			if (GROCY_LABEL_PRINTER_RUN_SERVER) {
-				(new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
-			}
+            $productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+            if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+                // ThermalPrint
+                $this->getPrintService()->printProductLabel($webhookData);
+            }
+            if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+                (new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+            }
 		}
 
 		return $transactionId;
@@ -1176,8 +1193,14 @@ class StockService extends BaseService
 						$webhookData['due_date'] = $this->getLocalizationService()->__t('DD') . ': ' . $newBestBeforeDate;
 					}
 
-					$runner = new WebhookRunner();
-					$runner->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                    $productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+                    if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+                        // ThermalPrint
+                        $this->getPrintService()->printProductLabel($webhookData);
+                    }
+                    if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+                        (new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                    }
 				}
 			}
 
@@ -1446,8 +1469,14 @@ class StockService extends BaseService
 						$webhookData['due_date'] = $this->getLocalizationService()->__t('DD') . ': ' . $newBestBeforeDate;
 					}
 
-					$runner = new WebhookRunner();
-					$runner->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                    $productUserfields = $this->getUserfieldsService()->GetValues('products', $productDetails->product->id);
+                    if (isset($productUserfields['LabelPrintAsThermalPrinter']) && $productUserfields['LabelPrintAsThermalPrinter'] == '1') {
+                        // ThermalPrint
+                        $this->getPrintService()->printProductLabel($webhookData);
+                    }
+                    if (!isset($productUserfields['LabelPrintNotAsLabelPrinter']) || ($productUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+                        (new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                    }
 				}
 			}
 
