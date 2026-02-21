@@ -907,6 +907,34 @@ class StockApiController extends BaseApiController
 		}
 	}
 
+    public function LocationPrintLabel(Request $request, Response $response, array $args)
+    {
+        try {
+            $LocationDetails = (object) $this->getDatabase()->locations($args['locationId']);
+
+            $webhookData = array_merge([
+                'location' => $LocationDetails->name,
+                'grocycode' => (string) (new Grocycode(Grocycode::LOCATION, $LocationDetails->id)),
+                'details' => $LocationDetails,
+            ], GROCY_LABEL_PRINTER_PARAMS);
+
+            if (GROCY_LABEL_PRINTER_RUN_SERVER) {
+                $locationUserfields = $this->getUserfieldsService()->GetValues('locations', $productDetails->product->id);
+                if (isset($locationUserfields['LabelPrintAsThermalPrinter']) && $locationUserfields['LabelPrintAsThermalPrinter'] == '1') {
+                    // ThermalPrint
+                    $this->getPrintService()->printLocationLabel($webhookData);
+                }
+                if (!isset($locationUserfields['LabelPrintNotAsLabelPrinter']) || ($locationUserfields['LabelPrintNotAsLabelPrinter'] == '0')) {
+                    (new WebhookRunner())->run(GROCY_LABEL_PRINTER_WEBHOOK, $webhookData, GROCY_LABEL_PRINTER_HOOK_JSON);
+                }
+            }
+
+            return $this->ApiResponse($response, $webhookData);
+        } catch (\Exception $ex) {
+            return $this->GenericErrorResponse($response, $ex->getMessage());
+        }
+    }
+
 	public function RemoveProductFromShoppingList(Request $request, Response $response, array $args)
 	{
 		User::checkPermission($request, User::PERMISSION_SHOPPINGLIST_ITEMS_DELETE);
