@@ -11,9 +11,7 @@
 
 <div class="row">
 	<div class="col-12 col-md-6 col-xl-4 pb-3">
-		<h2 class="title">@yield('title') <i class="fa-solid fa-question-circle text-muted small" data-toggle="tooltip"
-				title="{{ $__t('Scan the barcode on your container to perform inventory by container weight. Each container can have its own tare weight set via stock entry user fields.') }}"></i>
-		</h2>
+
 
 		<hr class="my-2">
 
@@ -23,6 +21,10 @@
 
 			<div class="form-group">
 				<label class="w-100" for="container_scanner">{{ $__t('Container barcode') }}
+					<span class="title">
+						<i class="fa-solid fa-question-circle text-muted small" data-toggle="tooltip"
+							title="{{ $__t('Scan the barcode on your container to perform inventory by container weight. Each container can have its own tare weight set via stock entry user fields.') }}"></i>
+					</span>
 					<i id="barcode-lookup-hint" class="fa-solid fa-barcode float-right mt-1"></i>
 				</label>
 				<div class="input-group">
