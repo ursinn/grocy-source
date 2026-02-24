@@ -71,6 +71,9 @@ $(document).on("click", ".stock-entry-context-menu-button", function (e) {
 	modal.find(".stock-transfer-link").attr("href", transferUrl);
 	modal.find(".stock-grocycode-link").attr("href", grocycodeUrl);
 	modal.find(".stockentry-label-link").attr("href", labelUrl);
+	modal
+		.find(".stockentry-grocycode-label-print")
+		.attr("data-stock-entry-id", stockEntryId);
 
 	// Buttons needing data attributes
 	var spoiledButton = modal.find(".stock-consume-button-spoiled");
@@ -91,6 +94,23 @@ $("#productcard-modal").on("hidden.bs.modal", function (e) {
 	if ($("#stockentry-context-menu").hasClass("show")) {
 		$("body").addClass("modal-open");
 	}
+});
+
+$(document).on("click", ".stockentry-grocycode-label-print", function (e) {
+	e.preventDefault();
+
+	var stockEntryId = $(e.currentTarget).attr("data-stock-entry-id");
+	Grocy.Api.Get(
+		"stock/entry/" + stockEntryId + "/printlabel",
+		function (labelData) {
+			if (Grocy.Webhooks.labelprinter !== undefined) {
+				Grocy.FrontendHelpers.RunWebhook(
+					Grocy.Webhooks.labelprinter,
+					labelData,
+				);
+			}
+		},
+	);
 });
 
 $(document).on("click", ".stock-consume-button", function (e) {
