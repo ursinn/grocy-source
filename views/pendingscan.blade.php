@@ -117,21 +117,25 @@
 					data-not-found-message="{{ $__t('No product data was found for this barcode.') }}"
 					data-error-message="{{ $__t('Barcode information could not be loaded.') }}"
 					data-not-available-label="{{ $__t('Not available') }}">
-					<div class="barcode-loading d-flex align-items-center text-muted small py-1 mb-1 border-bottom">
-						<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>
-						<span>{{ $__t('Loading barcode information...') }}</span>
-					</div>
-					<div class="barcode-error alert alert-warning small d-none mb-1 py-1 px-2" role="alert"></div>
-					<div class="barcode-result d-none pt-1">
-						<div class="media align-items-center align-items-md-start">
-							<img class="barcode-result-image rounded border mr-2 mb-2 mb-md-0 d-none" data-lookup-image
-								alt="{{ $__t('Product image') }}" width="64" style="max-width: 64px; height: auto;">
-							<div class="media-body">
-								<h6 class="mb-0 font-weight-bold" data-lookup-field="name">{{ $__t('Not available') }}
-								</h6>
-								<div class="small text-muted d-none" data-field-wrapper="brands">
-									<span class="text-uppercase font-weight-bold mr-1">{{ $__t('Brand') }}</span>
-									<span data-lookup-field="brands"></span>
+					<div style="min-height: 80px;">
+						<div class="barcode-loading d-flex align-items-center text-muted small py-1 mb-1 border-bottom">
+							<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>
+							<span>{{ $__t('Loading barcode information...') }}</span>
+						</div>
+						<div class="barcode-error alert alert-warning small d-none mb-1 py-1 px-2" role="alert"></div>
+						<div class="barcode-result d-none pt-1">
+							<div class="media align-items-center align-items-md-start">
+								<img class="barcode-result-image rounded mr-2 mb-2 mb-md-0 d-none" data-lookup-image
+									alt="{{ $__t('Product image') }}" width="64" height="64"
+									style="width: 64px; height: 64px; object-fit: contain;">
+								<div class="media-body">
+									<h6 class="mb-0 font-weight-bold" data-lookup-field="name">
+										{{ $__t('Not available') }}
+									</h6>
+									<div class="small text-muted d-none" data-field-wrapper="brands">
+										<span class="text-uppercase font-weight-bold mr-1">{{ $__t('Brand') }}</span>
+										<span data-lookup-field="brands"></span>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -139,20 +143,20 @@
 					<div class="mt-2">
 						<div class="d-flex flex-wrap">
 							<a class="btn btn-outline-secondary btn-sm mb-1 mr-1"
-								href="https://www.barcodelookup.com/{{ $encodedBarcode }}" target="_blank"
-								rel="noopener">
-								<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Barcode Lookup') }}
-							</a>
-							<a class="btn btn-outline-secondary btn-sm mb-1 mr-1"
 								href="https://www.google.com/search?q={{ $encodedBarcode }}" target="_blank"
 								rel="noopener">
-								<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Google search') }}
+								<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('Google') }}
 							</a>
-							<a class="btn btn-outline-secondary btn-sm mb-1"
+							<a class="btn btn-outline-secondary btn-sm mb-1 mr-1"
 								href="https://world.openfoodfacts.org/product/{{ $encodedBarcode }}" target="_blank"
 								rel="noopener">
 								<i class="fa-solid fa-arrow-up-right-from-square"></i>
-								{{ $__t('Open Food Facts') }}
+								{{ $__t('OpenFoodFacts') }}
+							</a>
+							<a class="btn btn-outline-secondary btn-sm mb-1"
+								href="https://www.barcodelookup.com/{{ $encodedBarcode }}" target="_blank"
+								rel="noopener">
+								<i class="fa-solid fa-arrow-up-right-from-square"></i> {{ $__t('BarcodeLookup') }}
 							</a>
 						</div>
 					</div>
@@ -203,7 +207,7 @@
 							$targetUrl = '/inventory?flow=InplaceAddBarcodeToExistingProduct&barcode=' . urlencode($pendingScan->barcode) . '&returnto=' . urlencode($pendingScanUrl);
 							break;
 					}
-																																												?>
+																																																																?>
 								<a class="btn btn-primary btn-sm mb-1 d-block" href="{{ $U($targetUrl) }}">
 									<i class="fa-solid fa-barcode"></i> {{ $__t('Add Barcode to Existing Product') }}
 								</a>
@@ -218,7 +222,7 @@
 					}
 					// Build create product return URL from inside out:
 					$targetUrl = '/product/new?flow=InplaceNewProductWithBarcode&barcode=' . urlencode($pendingScan->barcode) . '&returnto=' . urlencode($targetUrl);
-																																												?>
+																																																																?>
 								<a class="btn btn-outline-primary btn-sm mb-1 d-block" href="{{ $U($targetUrl) }}">
 									<i class="fa-solid fa-plus"></i> {{ $__t('Create New Product') }}
 								</a>
