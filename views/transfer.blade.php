@@ -45,20 +45,10 @@
 				class="text-info font-italic d-none">' . $__t('Tare weight handling enabled - please weigh the whole container, the amount to be posted will be automatically calculcated') . '</div>'
 			))
 
-			<div class="form-group">
-				<label for="location_id_to">{{ $__t('To location') }}</label>
-				<select required
-					class="custom-control custom-select location-combobox"
-					id="location_id_to"
-					name="location_id_to">
-					<option></option>
-					@foreach($locations as $location)
-					<option value="{{ $location->id }}"
-						data-is-freezer="{{ $location->is_freezer }}">{{ $location->name }}</option>
-					@endforeach
-				</select>
-				<div class="invalid-feedback">{{ $__t('A location is required') }}</div>
-			</div>
+            @include('components.transferlocationpicker', array(
+			'locations' => $locations,
+			'barcodes' => $barcodes,
+			))
 
 			<div class="form-group">
 				<div class="custom-control custom-checkbox">
