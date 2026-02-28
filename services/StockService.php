@@ -1325,10 +1325,12 @@ class StockService extends BaseService
 
 		$result_product = [];
 		$result_quantity = [];
+        $result_product_group = [];
 		$rowsShoppingListProducts = $this->getDatabase()->uihelper_shopping_list()->where('shopping_list_id = :1', $listId)->orderBy('product_group_id', 'COLLATE NOCASE')->fetchAll();
 		foreach ($rowsShoppingListProducts as $row) {
 			$isValidProduct = ($row->product_id != null && $row->product_id != '');
-			if ($isValidProduct) {
+            $product_group = $this->getDatabase()->product_groups()->where('id = :1', $row->product_group_id)->fetch();
+            if ($isValidProduct) {
 				$product = $this->getDatabase()->products()->where('id = :1', $row->product_id)->fetch();
 				$conversion = $this->getDatabase()->cache__quantity_unit_conversions_resolved()->where('product_id = :1 AND from_qu_id = :2 AND to_qu_id = :3', $product->id, $product->qu_id_stock, $row->qu_id)->fetch();
 
@@ -1355,14 +1357,17 @@ class StockService extends BaseService
 
 				array_push($result_quantity, $amount . ' ' . $quantityname);
 				array_push($result_product, $row->product_name . $note);
+                array_push($result_product_group, $product_group->name);
 			} else {
 				if ($isValidProduct) {
 					array_push($result_quantity, $amount);
 					array_push($result_product, $row->product_name . $note);
-				} else {
+                    array_push($result_product_group, $result_product_group->name);
+                } else {
 					array_push($result_quantity, round($row->amount));
 					array_push($result_product, $row->note);
-				}
+                    array_push($result_product_group, '');
+                }
 			}
 		}
 
@@ -1376,7 +1381,12 @@ class StockService extends BaseService
 
 		$result = [];
 		$length = count($result_quantity);
+        $last_product_group = '';
 		for ($i = 0; $i < $length; $i++) {
+            if ($last_product_group != $result_product_group[$i]) {
+                $last_product_group = $result_product_group[$i];
+                array_push($result, $result_product_group[$i]);
+            }
 			$quantity = str_pad($result_quantity[$i], $maxlength);
             $line = sprintf('%10.10s %-40.150s', $quantity, $result_product[$i]);
 			array_push($result, $line);
