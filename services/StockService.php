@@ -1325,7 +1325,7 @@ class StockService extends BaseService
 
 		$result_product = [];
 		$result_quantity = [];
-		$rowsShoppingListProducts = $this->getDatabase()->uihelper_shopping_list()->where('shopping_list_id = :1', $listId)->fetchAll();
+		$rowsShoppingListProducts = $this->getDatabase()->uihelper_shopping_list()->where('shopping_list_id = :1', $listId)->orderBy('product_group_id', 'COLLATE NOCASE')->fetchAll();
 		foreach ($rowsShoppingListProducts as $row) {
 			$isValidProduct = ($row->product_id != null && $row->product_id != '');
 			if ($isValidProduct) {
